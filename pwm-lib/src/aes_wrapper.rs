@@ -26,9 +26,15 @@ impl AesResult {
     }
 }
 
+impl Zeroize for AesResult {
+    fn zeroize(&mut self) {
+        self.data.zeroize();
+    }
+}
+
 impl Drop for AesResult {
     fn drop(&mut self) {
-        self.data.zeroize();
+        self.zeroize();
     }
 }
 

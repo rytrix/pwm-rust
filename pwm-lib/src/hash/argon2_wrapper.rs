@@ -12,15 +12,27 @@ fn argon2_default<'a>() -> Argon2<'a> {
     return argon2;
 }
 
-pub fn argon2_hash_password(password: &[u8]) -> Result<HashResult, HashError> {
+pub fn argon2_hash_password_into(password: &[u8], result: &mut HashResult) -> Result<(), HashError> {
     let argon2 = argon2_default();
-    let mut result = HashResult::new();
 
     let argon2_result = argon2.hash_password_into(password, &result.salt, &mut result.hash);
     match argon2_result {
         Ok(()) => {}
-        Err(error) => return Err(HashError::new(error.to_string())),
+        Err(error) => return Err(HashError::new(error.to_string().as_str())),
     }
+
+    Ok(())
+}
+
+pub fn argon2_hash_password(password: &[u8]) -> Result<HashResult, HashError> {
+    let mut result = HashResult::new();
+    argon2_hash_password_into(password, &mut result)?;
+    
+    Ok(result)
+}
+pub fn argon2_hash_password_with_salt(password: &[u8], salt: &[u8]) -> Result<HashResult, HashError> {
+    let mut result = HashResult::new_with_salt(salt)?;
+    argon2_hash_password_into(password, &mut result)?;
 
     Ok(result)
 }

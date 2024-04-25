@@ -14,29 +14,43 @@ fn scrypt_default_args() -> Result<Params, HashError> {
     let params = match params {
         Ok(params) => params,
         Err(error) => {
-            return Err(HashError::new(error.to_string()));
+            return Err(HashError::new(error.to_string().as_str()));
         }
     };
 
     Ok(params)
 }
 
-pub fn scrypt_hash_password(password: &[u8]) -> Result<HashResult, HashError> {
-    let mut result = HashResult::new();
-
+pub fn scrypt_hash_password_into(
+    password: &[u8],
+    result: &mut HashResult,
+) -> Result<(), HashError> {
     let params = scrypt_default_args()?;
 
     let scrypt_result = scrypt(password, &result.salt, &params, &mut result.hash);
     match scrypt_result {
         Ok(()) => {}
         Err(error) => {
-            return Err(HashError::new(error.to_string()));
+            return Err(HashError::new(error.to_string().as_str()));
         }
     }
+
+    Ok(())
+}
+
+pub fn scrypt_hash_password(password: &[u8]) -> Result<HashResult, HashError> {
+    let mut result = HashResult::new();
+    scrypt_hash_password_into(password, &mut result)?;
 
     return Ok(result);
 }
 
+pub fn scrypt_hash_password_with_salt(password: &[u8], salt: &[u8]) -> Result<HashResult, HashError> {
+    let mut result = HashResult::new_with_salt(salt)?;
+    scrypt_hash_password_into(password, &mut result)?;
+
+    return Ok(result);
+}
 
 #[cfg(test)]
 mod test {
