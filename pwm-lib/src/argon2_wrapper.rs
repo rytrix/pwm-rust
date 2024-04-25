@@ -11,7 +11,6 @@ fn argon2_default<'a>() -> Argon2<'a> {
     return argon2;
 }
 
-#[allow(unused)]
 pub fn argon2_hash_password(password: &[u8]) -> Result<SaltResult, SaltError> {
     let argon2 = argon2_default();
     let mut result = SaltResult::new();

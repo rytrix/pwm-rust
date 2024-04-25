@@ -19,12 +19,10 @@ impl SaltResult {
         return result;
     }
 
-    #[allow(dead_code)]
     pub fn get_salt(&self) -> &[u8] {
         &self.salt
     }
 
-    #[allow(dead_code)]
     pub fn get_hash(&self) -> &[u8] {
         &self.hash
     }

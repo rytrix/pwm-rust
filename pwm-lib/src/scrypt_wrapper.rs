@@ -20,7 +20,6 @@ fn scrypt_default_args() -> Result<Params, SaltError> {
     Ok(params)
 }
 
-#[allow(unused)]
 pub fn scrypt_hash_password(password: &[u8]) -> Result<SaltResult, SaltError> {
     let mut result = SaltResult::new();
 

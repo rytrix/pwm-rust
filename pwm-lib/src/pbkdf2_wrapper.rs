@@ -6,7 +6,6 @@ use crate::salt::{SaltError, SaltResult};
 // TODO how the heck do I find the library default for number of iterations
 static PBKDF2_DEFAULT_N: u32 = 600_000;
 
-#[allow(unused)]
 pub fn pbkdf2_hash_password(password: &[u8]) -> Result<SaltResult, SaltError> {
     let mut result = SaltResult::new();
 
