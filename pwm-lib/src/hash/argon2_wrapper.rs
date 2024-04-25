@@ -1,4 +1,4 @@
-use crate::hash::{SaltError, SaltResult};
+use crate::hash::{HashError, HashResult};
 use argon2::{Algorithm, Argon2, Params};
 
 // Updated April 25 of 2024
@@ -12,14 +12,14 @@ fn argon2_default<'a>() -> Argon2<'a> {
     return argon2;
 }
 
-pub fn argon2_hash_password(password: &[u8]) -> Result<SaltResult, SaltError> {
+pub fn argon2_hash_password(password: &[u8]) -> Result<HashResult, HashError> {
     let argon2 = argon2_default();
-    let mut result = SaltResult::new();
+    let mut result = HashResult::new();
 
     let argon2_result = argon2.hash_password_into(password, &result.salt, &mut result.hash);
     match argon2_result {
         Ok(()) => {}
-        Err(error) => return Err(SaltError::new(error.to_string())),
+        Err(error) => return Err(HashError::new(error.to_string())),
     }
 
     Ok(result)

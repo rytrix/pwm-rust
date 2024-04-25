@@ -1,9 +1,9 @@
-use crate::hash::{SaltError, SaltResult};
+use crate::hash::{HashError, HashResult};
 
 use scrypt::{scrypt, Params};
 
 // Updated April 25 of 2024
-fn scrypt_default_args() -> Result<Params, SaltError> {
+fn scrypt_default_args() -> Result<Params, HashError> {
     let params = Params::new(
         Params::RECOMMENDED_LOG_N,
         Params::RECOMMENDED_R,
@@ -14,15 +14,15 @@ fn scrypt_default_args() -> Result<Params, SaltError> {
     let params = match params {
         Ok(params) => params,
         Err(error) => {
-            return Err(SaltError::new(error.to_string()));
+            return Err(HashError::new(error.to_string()));
         }
     };
 
     Ok(params)
 }
 
-pub fn scrypt_hash_password(password: &[u8]) -> Result<SaltResult, SaltError> {
-    let mut result = SaltResult::new();
+pub fn scrypt_hash_password(password: &[u8]) -> Result<HashResult, HashError> {
+    let mut result = HashResult::new();
 
     let params = scrypt_default_args()?;
 
@@ -30,7 +30,7 @@ pub fn scrypt_hash_password(password: &[u8]) -> Result<SaltResult, SaltError> {
     match scrypt_result {
         Ok(()) => {}
         Err(error) => {
-            return Err(SaltError::new(error.to_string()));
+            return Err(HashError::new(error.to_string()));
         }
     }
 

@@ -1,4 +1,7 @@
-workspace = { members = [ "pwm-cli","pwm-lib"] }
+[workspace]
+members = [ "pwm-cli", "pwm-db", "pwm-lib"]
+resolver = "2"
+
 
 # [package]
 # name = "pwm"

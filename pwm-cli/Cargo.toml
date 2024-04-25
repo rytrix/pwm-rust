@@ -6,4 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-pwm-lib = { path = "../pwm-lib", name = "pwm-lib" }
+pwm-lib = { path = "../pwm-lib" }
+# rusqlite = {version = "0.31.0", features = ["bundled", "serialize"]}
+# rocksdb = { version = "0.22.0", features = "zstd" }

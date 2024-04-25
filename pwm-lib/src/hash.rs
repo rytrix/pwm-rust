@@ -5,15 +5,15 @@ pub mod pbkdf2_wrapper;
 use aead::rand_core::RngCore;
 use zeroize::Zeroize;
 
-pub struct SaltResult {
+pub struct HashResult {
     salt: [u8; 32],
     hash: [u8; 32],
 }
 
-impl SaltResult {
+impl HashResult {
     // Implicitly generates a random salt using aead::OsRng
-    pub fn new() -> SaltResult {
-        let mut result = SaltResult {
+    pub fn new() -> HashResult {
+        let mut result = HashResult {
             salt: [0; 32],
             hash: [0; 32],
         };
@@ -36,7 +36,7 @@ impl SaltResult {
     }
 }
 
-impl Drop for SaltResult {
+impl Drop for HashResult {
     fn drop(&mut self) {
         self.salt.zeroize();
         self.hash.zeroize();
@@ -44,20 +44,20 @@ impl Drop for SaltResult {
 }
 
 #[derive(Debug)]
-pub struct SaltError {
+pub struct HashError {
     error: String,
 }
 
-impl SaltError {
+impl HashError {
     pub fn new(msg: String) -> Self {
         Self { error: msg }
     }
 }
 
-impl std::fmt::Display for SaltError {
+impl std::fmt::Display for HashError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.error.as_ref())
     }
 }
 
-impl std::error::Error for SaltError {}
+impl std::error::Error for HashError {}

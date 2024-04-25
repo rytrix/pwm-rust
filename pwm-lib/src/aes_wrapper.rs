@@ -2,8 +2,12 @@ use aes_gcm::{
     aead::{Aead, AeadCore, KeyInit},
     Aes256Gcm, Key,
 };
+use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, Zeroizing};
 
+use crate::hash::HashResult;
+
+#[derive(Serialize, Deserialize)]
 pub struct AesResult {
     data: Vec<u8>,
 }
@@ -11,6 +15,14 @@ pub struct AesResult {
 impl AesResult {
     pub fn as_ref(&self) -> &Vec<u8> {
         &self.data
+    }
+
+    pub fn get_salt_slice(&self) -> &[u8] {
+        &self.data[self.data.len() - 32..]
+    }
+
+    pub fn get_crypt_slice(&self) -> &[u8] {
+        &self.data[..self.data.len() - 32]
     }
 }
 
@@ -25,8 +37,11 @@ pub fn random_key() -> zeroize::Zeroizing<[u8; 32]> {
     return Zeroizing::new(key.into());
 }
 
-pub fn aes_gcm_encrypt(key: &[u8], plaintext: &[u8]) -> Result<AesResult, aes_gcm::Error> {
-    let key = Key::<Aes256Gcm>::from_slice(&key);
+pub fn aes_gcm_encrypt(
+    hash_result: &HashResult,
+    plaintext: &[u8],
+) -> Result<AesResult, aes_gcm::Error> {
+    let key = Key::<Aes256Gcm>::from_slice(hash_result.get_hash());
 
     let cipher = Aes256Gcm::new(&key);
 
@@ -34,12 +49,15 @@ pub fn aes_gcm_encrypt(key: &[u8], plaintext: &[u8]) -> Result<AesResult, aes_gc
     let nonce = Aes256Gcm::generate_nonce(&mut aead::OsRng); // 96-bits; unique per message
     let mut ciphertext = cipher.encrypt(&nonce, plaintext)?;
     ciphertext.extend_from_slice(nonce.as_slice());
+    ciphertext.extend_from_slice(hash_result.get_salt());
 
     return Ok(AesResult { data: ciphertext });
 }
 
-pub fn aes_gcm_decrypt(key: &[u8], ciphertext: &[u8]) -> Result<AesResult, aes_gcm::Error> {
+pub fn aes_gcm_decrypt(key: &[u8], ciphertext: &AesResult) -> Result<AesResult, aes_gcm::Error> {
     let key = Key::<Aes256Gcm>::from_slice(&key);
+
+    let ciphertext = ciphertext.get_crypt_slice();
 
     let cipher = Aes256Gcm::new(&key);
     let nonce = &ciphertext[ciphertext.len() - 12..];
@@ -61,9 +79,9 @@ mod test {
 
         let hash = pbkdf2_hash_password(password).unwrap();
 
-        let ciphertext = aes_gcm_encrypt(hash.get_hash(), plaintext).unwrap();
+        let ciphertext = aes_gcm_encrypt(&hash, plaintext).unwrap();
 
-        let plaintext_result = aes_gcm_decrypt(hash.get_hash(), &ciphertext.as_ref()).unwrap();
+        let plaintext_result = aes_gcm_decrypt(hash.get_hash(), &ciphertext).unwrap();
 
         let matching = plaintext
             .as_ref()
