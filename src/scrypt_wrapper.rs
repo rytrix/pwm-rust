@@ -36,3 +36,15 @@ pub fn scrypt_hash_password(password: &[u8]) -> Result<SaltResult, SaltError> {
 
     return Ok(result);
 }
+
+
+#[cfg(test)]
+mod test {
+    use super::scrypt_hash_password;
+
+    #[test]
+    fn test_pbkdf2_for_crash() {
+        let password = b"password123";
+        let _ = scrypt_hash_password(password).unwrap();
+    }
+}
