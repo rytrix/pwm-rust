@@ -1,9 +1,13 @@
+pub mod scrypt_wrapper;
+pub mod argon2_wrapper;
+pub mod pbkdf2_wrapper;
+
 use aead::rand_core::RngCore;
 use zeroize::Zeroize;
 
 pub struct SaltResult {
-    pub salt: [u8; 32],
-    pub hash: [u8; 32],
+    salt: [u8; 32],
+    hash: [u8; 32],
 }
 
 impl SaltResult {

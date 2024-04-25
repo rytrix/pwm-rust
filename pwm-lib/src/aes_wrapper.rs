@@ -20,7 +20,6 @@ impl Drop for AesResult {
     }
 }
 
-#[allow(dead_code)]
 pub fn random_key() -> zeroize::Zeroizing<[u8; 32]> {
     let key = Aes256Gcm::generate_key(aead::OsRng);
     return Zeroizing::new(key.into());
@@ -31,7 +30,7 @@ pub fn aes_gcm_encrypt(key: &[u8], plaintext: &[u8]) -> Result<AesResult, aes_gc
 
     let cipher = Aes256Gcm::new(&key);
 
-    // if doing absurd number of random numbers over 4 million consider siv
+    // TODO if doing absurd number of random numbers over 4 million consider siv
     let nonce = Aes256Gcm::generate_nonce(&mut aead::OsRng); // 96-bits; unique per message
     let mut ciphertext = cipher.encrypt(&nonce, plaintext)?;
     ciphertext.extend_from_slice(nonce.as_slice());
@@ -53,7 +52,7 @@ pub fn aes_gcm_decrypt(key: &[u8], ciphertext: &[u8]) -> Result<AesResult, aes_g
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::pbkdf2_wrapper::pbkdf2_hash_password;
+    use crate::hash::pbkdf2_wrapper::pbkdf2_hash_password;
 
     #[test]
     fn test_aes256_for_crash() {
@@ -62,9 +61,9 @@ mod test {
 
         let hash = pbkdf2_hash_password(password).unwrap();
 
-        let ciphertext = aes_gcm_encrypt(&hash.hash, plaintext).unwrap();
+        let ciphertext = aes_gcm_encrypt(hash.get_hash(), plaintext).unwrap();
 
-        let plaintext_result = aes_gcm_decrypt(&hash.hash, &ciphertext.as_ref()).unwrap();
+        let plaintext_result = aes_gcm_decrypt(hash.get_hash(), &ciphertext.as_ref()).unwrap();
 
         let matching = plaintext
             .as_ref()

@@ -1,9 +1,10 @@
 use pbkdf2::pbkdf2_hmac;
 use sha2::Sha256;
 
-use crate::salt::{SaltError, SaltResult};
+use crate::hash::{SaltError, SaltResult};
 
 // TODO how the heck do I find the library default for number of iterations
+// Updated April 25 of 2024
 static PBKDF2_DEFAULT_N: u32 = 600_000;
 
 pub fn pbkdf2_hash_password(password: &[u8]) -> Result<SaltResult, SaltError> {

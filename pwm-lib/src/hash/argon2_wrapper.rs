@@ -1,6 +1,7 @@
-use crate::salt::{SaltError, SaltResult};
+use crate::hash::{SaltError, SaltResult};
 use argon2::{Algorithm, Argon2, Params};
 
+// Updated April 25 of 2024
 fn argon2_default<'a>() -> Argon2<'a> {
     let argon2 = Argon2::new(
         Algorithm::Argon2id,

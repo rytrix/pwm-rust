@@ -1,7 +1,8 @@
-use crate::salt::{SaltError, SaltResult};
+use crate::hash::{SaltError, SaltResult};
 
 use scrypt::{scrypt, Params};
 
+// Updated April 25 of 2024
 fn scrypt_default_args() -> Result<Params, SaltError> {
     let params = Params::new(
         Params::RECOMMENDED_LOG_N,

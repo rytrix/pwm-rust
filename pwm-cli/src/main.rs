@@ -1,6 +1,6 @@
 // use pwm_lib::scrypt_wrapper::scrypt_hash_password;
 // use pwm_lib::argon2_wrapper::argon2_hash_password;
-use pwm_lib::pbkdf2_wrapper::pbkdf2_hash_password;
+use pwm_lib::hash::pbkdf2_wrapper::pbkdf2_hash_password;
 
 use pwm_lib::aes_wrapper::{aes_gcm_decrypt, aes_gcm_encrypt};
 use pwm_lib::zeroize::Zeroizing;

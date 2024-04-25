@@ -1,7 +1,4 @@
 pub mod aes_wrapper;
-pub mod argon2_wrapper;
-pub mod pbkdf2_wrapper;
-pub mod salt;
-pub mod scrypt_wrapper;
+pub mod hash;
 
 pub extern crate zeroize;
