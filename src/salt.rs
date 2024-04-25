@@ -1,4 +1,5 @@
 use aead::rand_core::RngCore;
+use zeroize::Zeroize;
 
 pub struct SaltResult {
     pub salt: [u8; 32],
@@ -18,8 +19,25 @@ impl SaltResult {
         return result;
     }
 
+    #[allow(dead_code)]
+    pub fn get_salt(&self) -> &[u8] {
+        &self.salt
+    }
+
+    #[allow(dead_code)]
+    pub fn get_hash(&self) -> &[u8] {
+        &self.hash
+    }
+
     fn randomize_salt(&mut self) {
         aead::OsRng::fill_bytes(&mut aead::OsRng, &mut self.salt);
+    }
+}
+
+impl Drop for SaltResult {
+    fn drop(&mut self) {
+        self.salt.zeroize();
+        self.hash.zeroize();
     }
 }
 
@@ -30,9 +48,7 @@ pub struct SaltError {
 
 impl SaltError {
     pub fn new(msg: String) -> Self {
-        Self {
-            error: msg,
-        }
+        Self { error: msg }
     }
 }
 
