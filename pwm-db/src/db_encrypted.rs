@@ -143,7 +143,7 @@ impl DatabaseEncryptedAsync {
         compare_hash(result.get_hash(), self.pw_hash.get_hash())
     }
 
-    pub async fn serialize(&mut self) -> Result<Vec<u8>, DatabaseError> {
+    pub async fn serialize(&self) -> Result<Vec<u8>, DatabaseError> {
         let db = match self.db.try_lock() {
             Ok(db) => db,
             Err(_) => return Err(DatabaseError::LockError),

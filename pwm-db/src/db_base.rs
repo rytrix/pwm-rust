@@ -12,6 +12,7 @@ pub enum DatabaseError {
     FailedAes(String),
     LockError,
     InvalidPassword,
+    InputError(String),
     FailedSerialize,
     FailedDeserialize,
 }
@@ -25,6 +26,7 @@ impl std::fmt::Display for DatabaseError {
             Self::FailedAes(msg) => f.write_fmt(std::format_args!("Failed aes encryption: {}", msg)),
             Self::LockError => f.write_str("Failed to get mutex lock on db"),
             Self::InvalidPassword => f.write_str("Invalid password provided"),
+            Self::InputError(msg) => f.write_fmt(std::format_args!("Input error: {}", msg)),
             Self::FailedSerialize => f.write_str("Failed to serialize"),
             Self::FailedDeserialize => f.write_str("Failed to deserialize"),
         };

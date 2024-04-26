@@ -17,7 +17,7 @@ impl AesResult {
         if data.len() <= 32 {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
-                "Data is likely not encrypted as it is shorter than the salt key",
+                "Data is likely not encrypted",
             ))
         }
         Ok(Self { data })

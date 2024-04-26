@@ -1,8 +1,9 @@
 mod crypt_file;
+mod vault;
 
-use clap::Parser;
+use crate::{crypt_file::{decrypt_file, encrypt_file}, vault::Vault};
 
-use crate::crypt_file::{decrypt_file, encrypt_file};
+use clap::{ArgAction, Parser};
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -20,7 +21,7 @@ struct Args {
     vault: Option<String>,
 
     /// Create a vault
-    #[arg(short, long, value_name = "boolean", default_value_t = false)]
+    #[arg(short, long, value_name = "boolean", action = ArgAction::SetTrue)]
     create: bool,
 
     /// Output file
@@ -28,7 +29,8 @@ struct Args {
     out: Option<String>,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let args = Args::parse();
 
     if args.decrypt.is_none() && args.vault.is_none() && !args.create {
@@ -43,17 +45,26 @@ fn main() {
         // Decrypt
         if let Some(name) = args.decrypt {
             println!("Decrypting file {}", name);
-            if let Err(_error) = decrypt_file(name, args.out) {
-                println!("Invalid password");
+            if let Err(error) = decrypt_file(name, args.out) {
+                println!("Error: {}", error);
             }
         }
-    } else if args.encrypt.is_none() && args.decrypt.is_none() && args.create {
+    } else if args.encrypt.is_none() && args.decrypt.is_none() && !args.create {
         // Vault
         if args.out.is_some() {
             println!("ignoring out parameter for vault");
         }
         if let Some(name) = args.vault {
-            println!("vault {}", name);
+            println!("Loading a vault from the file {}", name);
+            let mut vault = match Vault::new_from_file(name.as_str()).await {
+                Ok(vault) => vault,
+                Err(error) => {
+                    println!("Error: {}", error.to_string());
+                    return;
+                }
+            };
+
+            vault.run().await;
         }
     } else if args.encrypt.is_none() && args.decrypt.is_none() && args.vault.is_none() {
         // New Vault
@@ -61,9 +72,20 @@ fn main() {
             println!("ignoring out parameter for create");
         }
         if args.create {
-            println!("creating vault");
+            println!("Creating a new vault");
+            let mut vault = match Vault::new().await {
+                Ok(vault) => vault,
+                Err(error) => {
+                    println!("Error: {}", error.to_string());
+                    return;
+                }
+            };
+
+            vault.run().await;
         }
     } else {
-        println!("to many arguments provided, only provide encrypt, decrypt or vault");
+        println!("to many arguments provided, only provide encrypt, decrypt, vault or create");
     }
+
+    println!("exiting");
 }
