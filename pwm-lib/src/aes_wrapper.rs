@@ -13,10 +13,14 @@ pub struct AesResult {
 }
 
 impl AesResult {
-    pub fn new(data: Vec<u8>) -> Self {
-        Self {
-            data
+    pub fn new(data: Vec<u8>) -> Result<Self, std::io::Error> {
+        if data.len() <= 32 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Data is likely not encrypted as it is shorter than the salt key",
+            ))
         }
+        Ok(Self { data })
     }
 
     pub fn as_ref(&self) -> &Vec<u8> {
