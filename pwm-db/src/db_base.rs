@@ -8,10 +8,12 @@ use pwm_lib::zeroize::Zeroize;
 pub enum DatabaseError {
     NotFound,
     AlreadyExists,
-    FailedHash,
-    FailedAes,
+    FailedHash(String),
+    FailedAes(String),
     LockError,
     InvalidPassword,
+    FailedSerialize,
+    FailedDeserialize,
 }
 
 impl std::fmt::Display for DatabaseError {
@@ -19,10 +21,12 @@ impl std::fmt::Display for DatabaseError {
         return match self {
             Self::NotFound => f.write_str("Not found"),
             Self::AlreadyExists => f.write_str("Already exists"),
-            Self::FailedHash => f.write_str("Failed hash"),
-            Self::FailedAes => f.write_str("Failed aes encryption"),
+            Self::FailedHash(msg) => f.write_fmt(std::format_args!("Failed hash: {}", msg)),
+            Self::FailedAes(msg) => f.write_fmt(std::format_args!("Failed aes encryption: {}", msg)),
             Self::LockError => f.write_str("Failed to get mutex lock on db"),
             Self::InvalidPassword => f.write_str("Invalid password provided"),
+            Self::FailedSerialize => f.write_str("Failed to serialize"),
+            Self::FailedDeserialize => f.write_str("Failed to deserialize"),
         };
     }
 }
@@ -45,6 +49,14 @@ where
         Self {
             data: BTreeMap::new(),
         }
+    }
+
+    pub fn as_ref(&self) -> &Self {
+        &self
+    }
+
+    pub fn as_ref_mut(&mut self) -> &mut Self {
+        self
     }
 
     pub fn insert(&mut self, name: &str, value: V) -> Result<(), DatabaseError> {

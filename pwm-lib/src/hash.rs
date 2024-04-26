@@ -4,8 +4,10 @@ pub mod scrypt_wrapper;
 pub mod sha_wrapper;
 
 use aead::rand_core::RngCore;
+use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
 
+#[derive(Serialize, Deserialize)]
 pub struct HashResult {
     salt: [u8; 32],
     hash: [u8; 32],
@@ -38,6 +40,27 @@ impl HashResult {
 
         Ok(result)
     }
+
+    pub fn new_with_salt_and_hash(salt: &[u8], hash: &[u8]) -> Result<HashResult, HashError> {
+        if salt.len() != 32 {
+            return Err(HashError::new("Invalid salt length, expected 32"));
+        }
+
+        if hash.len() != 32 {
+            return Err(HashError::new("Invalid hash length, expected 32"));
+        }
+
+        let mut result = HashResult {
+            salt: [0; 32],
+            hash: [0; 32],
+        };
+
+        result.salt.copy_from_slice(salt);
+        result.hash.copy_from_slice(hash);
+
+        Ok(result)
+    }
+
 
     pub fn get_salt(&self) -> &[u8] {
         &self.salt

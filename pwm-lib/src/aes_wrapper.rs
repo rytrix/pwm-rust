@@ -17,6 +17,10 @@ impl AesResult {
         &self.data
     }
 
+    pub fn as_slice(&self) -> &[u8] {
+        &self.data.as_slice()
+    }
+
     pub fn get_salt_slice(&self) -> &[u8] {
         &self.data[self.data.len() - 32..]
     }
@@ -61,7 +65,7 @@ pub fn aes_gcm_encrypt(
 }
 
 pub fn aes_gcm_decrypt(key: &[u8], ciphertext: &AesResult) -> Result<AesResult, aes_gcm::Error> {
-    let key = Key::<Aes256Gcm>::from_slice(&key);
+    let key = Key::<Aes256Gcm>::from_slice(key);
 
     let ciphertext = ciphertext.get_crypt_slice();
 
