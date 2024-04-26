@@ -2,8 +2,6 @@ use std::collections::btree_map::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use pwm_lib::zeroize::Zeroize;
-
 #[derive(Debug)]
 pub enum DatabaseError {
     NotFound,
@@ -23,7 +21,9 @@ impl std::fmt::Display for DatabaseError {
             Self::NotFound => f.write_str("Not found"),
             Self::AlreadyExists => f.write_str("Already exists"),
             Self::FailedHash(msg) => f.write_fmt(std::format_args!("Failed hash: {}", msg)),
-            Self::FailedAes(msg) => f.write_fmt(std::format_args!("Failed aes encryption: {}", msg)),
+            Self::FailedAes(msg) => {
+                f.write_fmt(std::format_args!("Failed aes encryption: {}", msg))
+            }
             Self::LockError => f.write_str("Failed to get mutex lock on db"),
             Self::InvalidPassword => f.write_str("Invalid password provided"),
             Self::InputError(msg) => f.write_fmt(std::format_args!("Input error: {}", msg)),
@@ -36,17 +36,11 @@ impl std::fmt::Display for DatabaseError {
 impl std::error::Error for DatabaseError {}
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Database<V>
-where
-    V: Zeroize,
-{
+pub struct Database<V> {
     data: BTreeMap<String, V>,
 }
 
-impl<V> Database<V>
-where
-    V: Zeroize,
-{
+impl<V> Database<V> {
     pub fn new() -> Self {
         Self {
             data: BTreeMap::new(),
@@ -85,6 +79,11 @@ where
             Some(value) => Ok(value),
             None => Err(DatabaseError::NotFound),
         };
+    }
+
+    pub fn list(&self) -> Result<Vec<String>, DatabaseError> {
+        let keys = self.data.iter().map(|(key, _)| key.clone()).collect();
+        Ok(keys)
     }
 }
 

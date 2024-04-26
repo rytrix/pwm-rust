@@ -11,4 +11,3 @@ pwm-db = { path = "../pwm-db" }
 clap = { version = "4.5.4", features = ["derive"] }
 # Check this for testing pws
 rpassword = "7.3.1"
-tokio = { version = "1.37.0", features = ["full"] }

@@ -9,28 +9,26 @@ use pwm_lib::{
     },
 };
 
-use std::sync::Mutex;
-
-pub struct DatabaseEncryptedAsync {
-    db: Mutex<Database<AesResult>>,
+pub struct DatabaseEncrypted {
+    db: Database<AesResult>,
     pw_hash: HashResult,
 }
 
-impl DatabaseEncryptedAsync {
-    pub async fn new(password: &[u8]) -> Result<Self, DatabaseError> {
+impl DatabaseEncrypted {
+    pub fn new(password: &[u8]) -> Result<Self, DatabaseError> {
         let mut salt = [0; 32];
         randomize_slice(&mut salt);
         let hash = Self::hash_password(password, &salt)?;
 
         let db = Self {
-            db: Mutex::new(Database::new()),
+            db: Database::new(),
             pw_hash: hash,
         };
 
         return Ok(db);
     }
 
-    pub async fn new_deserialize(serialized: &[u8]) -> Result<Self, DatabaseError> {
+    pub fn new_deserialize(serialized: &[u8]) -> Result<Self, DatabaseError> {
         let hash = match HashResult::new_with_salt_and_hash(
             &serialized[serialized.len() - 32..],
             &serialized[serialized.len() - 64..serialized.len() - 32],
@@ -46,12 +44,12 @@ impl DatabaseEncryptedAsync {
             };
 
         Ok(Self {
-            db: Mutex::new(db),
+            db: db,
             pw_hash: hash,
         })
     }
 
-    pub async fn insert(
+    pub fn insert(
         &mut self,
         name: &str,
         data: &[u8],
@@ -64,7 +62,7 @@ impl DatabaseEncryptedAsync {
             Err(error) => return Err(DatabaseError::FailedHash(error.to_string())),
         };
 
-        if !valid_password.await {
+        if !valid_password {
             return Err(DatabaseError::InvalidPassword);
         }
 
@@ -73,43 +71,29 @@ impl DatabaseEncryptedAsync {
             Err(error) => return Err(DatabaseError::FailedAes(error.to_string())),
         };
 
-        let db = match self.db.get_mut() {
-            Ok(db) => db,
-            Err(_) => return Err(DatabaseError::LockError),
-        };
-        db.insert(name, data)?;
+        self.db.insert(name, data)?;
 
         Ok(())
     }
 
-    pub async fn remove(&mut self, name: &str, password: &[u8]) -> Result<(), DatabaseError> {
+    pub fn remove(&mut self, name: &str, password: &[u8]) -> Result<(), DatabaseError> {
         let valid_password = self.hash_password_and_compare(password);
-        if !valid_password.await {
+        if !valid_password {
             return Err(DatabaseError::InvalidPassword);
         }
 
-        let db = match self.db.get_mut() {
-            Ok(db) => db,
-            Err(_) => return Err(DatabaseError::LockError),
-        };
-
-        db.remove(name)?;
+        self.db.remove(name)?;
 
         Ok(())
     }
 
-    pub async fn get(&self, name: &str, password: &[u8]) -> Result<AesResult, DatabaseError> {
+    pub fn get(&self, name: &str, password: &[u8]) -> Result<AesResult, DatabaseError> {
         let valid_password = self.hash_password_and_compare(password);
-        if !valid_password.await {
+        if !valid_password {
             return Err(DatabaseError::InvalidPassword);
         }
 
-        let db = match self.db.try_lock() {
-            Ok(db) => db,
-            Err(_) => return Err(DatabaseError::LockError),
-        };
-
-        let ciphertext = db.get(name)?;
+        let ciphertext = self.db.get(name)?;
 
         let hash = match argon2_hash_password_with_salt(password, ciphertext.get_salt_slice()) {
             Ok(hash_result) => hash_result,
@@ -124,6 +108,10 @@ impl DatabaseEncryptedAsync {
         Ok(result)
     }
 
+    pub fn list(&self) -> Result<Vec<String>, DatabaseError> {
+        self.db.list()
+    }
+
     fn hash_password(password: &[u8], salt: &[u8]) -> Result<HashResult, DatabaseError> {
         let hash = match pbkdf2_hash_password_with_salt(password, salt) {
             Ok(hash) => hash,
@@ -134,7 +122,7 @@ impl DatabaseEncryptedAsync {
     }
 
     // Returns true if the hash matches
-    async fn hash_password_and_compare(&self, password: &[u8]) -> bool {
+    fn hash_password_and_compare(&self, password: &[u8]) -> bool {
         let result = match Self::hash_password(password, self.pw_hash.get_salt()) {
             Ok(hash) => hash,
             Err(_error) => return false,
@@ -143,13 +131,8 @@ impl DatabaseEncryptedAsync {
         compare_hash(result.get_hash(), self.pw_hash.get_hash())
     }
 
-    pub async fn serialize(&self) -> Result<Vec<u8>, DatabaseError> {
-        let db = match self.db.try_lock() {
-            Ok(db) => db,
-            Err(_) => return Err(DatabaseError::LockError),
-        };
-
-        let mut data = match bincode::serialize(db.as_ref()) {
+    pub fn serialize(&self) -> Result<Vec<u8>, DatabaseError> {
+        let mut data = match bincode::serialize(self.db.as_ref()) {
             Ok(data) => data,
             Err(_err) => return Err(DatabaseError::FailedDeserialize),
         };
@@ -163,40 +146,30 @@ impl DatabaseEncryptedAsync {
 
 #[cfg(test)]
 mod test {
-    use super::DatabaseEncryptedAsync;
+    use super::DatabaseEncrypted;
 
     #[test]
     fn test_generic() {
-        tokio_test::block_on(test_generic_async())
-    }
+        let mut db = DatabaseEncrypted::new(b"test").unwrap();
+        db.insert("ryan", b"password", b"test").unwrap();
+        db.insert("ryan2", b"password", b"test").unwrap();
 
-    async fn test_generic_async() {
-        let mut db = DatabaseEncryptedAsync::new(b"test").await.unwrap();
-        db.insert("ryan", b"password", b"test").await.unwrap();
-        db.insert("ryan2", b"password", b"test").await.unwrap();
-
-        let pass = db.get("ryan", b"test").await.unwrap();
+        let pass = db.get("ryan", b"test").unwrap();
         assert_eq!(b"password", pass.as_slice());
-        db.remove("ryan2", b"test").await.unwrap();
-        db.remove("ryan", b"test").await.unwrap();
+        db.remove("ryan2", b"test").unwrap();
+        db.remove("ryan", b"test").unwrap();
     }
 
     #[test]
     fn test_serialize_deserialize() {
-        tokio_test::block_on(test_serialize_deserialize_async())
-    }
+        let mut db = DatabaseEncrypted::new(b"test").unwrap();
+        db.insert("ryan", b"password", b"test").unwrap();
+        db.insert("ryan2", b"password", b"test").unwrap();
 
-    async fn test_serialize_deserialize_async() {
-        let mut db = DatabaseEncryptedAsync::new(b"test").await.unwrap();
-        db.insert("ryan", b"password", b"test").await.unwrap();
-        db.insert("ryan2", b"password", b"test").await.unwrap();
+        let serialized = db.serialize().unwrap();
+        let db = DatabaseEncrypted::new_deserialize(serialized.as_slice()).unwrap();
 
-        let serialized = db.serialize().await.unwrap();
-        let db = DatabaseEncryptedAsync::new_deserialize(serialized.as_slice())
-            .await
-            .unwrap();
-
-        let pass = db.get("ryan", b"test").await.unwrap();
+        let pass = db.get("ryan", b"test").unwrap();
         assert_eq!(b"password", pass.as_slice())
     }
 }

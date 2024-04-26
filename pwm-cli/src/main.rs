@@ -29,8 +29,7 @@ struct Args {
     out: Option<String>,
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let args = Args::parse();
 
     if args.decrypt.is_none() && args.vault.is_none() && !args.create {
@@ -56,7 +55,7 @@ async fn main() {
         }
         if let Some(name) = args.vault {
             println!("Loading a vault from the file {}", name);
-            let mut vault = match Vault::new_from_file(name.as_str()).await {
+            let mut vault = match Vault::new_from_file(name.as_str()) {
                 Ok(vault) => vault,
                 Err(error) => {
                     println!("Error: {}", error.to_string());
@@ -64,7 +63,7 @@ async fn main() {
                 }
             };
 
-            vault.run().await;
+            vault.run();
         }
     } else if args.encrypt.is_none() && args.decrypt.is_none() && args.vault.is_none() {
         // New Vault
@@ -73,7 +72,7 @@ async fn main() {
         }
         if args.create {
             println!("Creating a new vault");
-            let mut vault = match Vault::new().await {
+            let mut vault = match Vault::new() {
                 Ok(vault) => vault,
                 Err(error) => {
                     println!("Error: {}", error.to_string());
@@ -81,7 +80,7 @@ async fn main() {
                 }
             };
 
-            vault.run().await;
+            vault.run();
         }
     } else {
         println!("to many arguments provided, only provide encrypt, decrypt, vault or create");

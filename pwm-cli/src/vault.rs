@@ -1,37 +1,41 @@
-use pwm_db::{db_base::DatabaseError, db_encrypted::DatabaseEncryptedAsync};
+use pwm_db::{db_base::DatabaseError, db_encrypted::DatabaseEncrypted};
 use pwm_lib::{aes_wrapper::AesResult, zeroize::Zeroizing};
-use std::io::Write;
 
 use crate::crypt_file::{password_confirmation, request_password};
 
+// enum VaultResult {
+//     None(Result<(), DatabaseError>),
+//     Aes(Result<AesResult, DatabaseError>),
+// }
+
 pub struct Vault {
-    db: DatabaseEncryptedAsync,
+    db: DatabaseEncrypted,
     changed: bool,
 }
 
 impl Vault {
-    pub async fn new() -> Result<Self, DatabaseError> {
+    pub fn new() -> Result<Self, DatabaseError> {
         let password = match password_confirmation() {
             Ok(password) => password,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
 
-        let db = DatabaseEncryptedAsync::new(password.as_bytes()).await?;
+        let db = DatabaseEncrypted::new(password.as_bytes())?;
         Ok(Self { db, changed: true })
     }
 
-    pub async fn new_from_file(file: &str) -> Result<Self, DatabaseError> {
+    pub fn new_from_file(file: &str) -> Result<Self, DatabaseError> {
         let contents = match std::fs::read(file) {
             Ok(contents) => Zeroizing::new(contents),
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
 
-        let db = DatabaseEncryptedAsync::new_deserialize(contents.as_slice()).await?;
+        let db = DatabaseEncrypted::new_deserialize(contents.as_slice())?;
 
         Ok(Self { db, changed: false })
     }
 
-    pub async fn run(&mut self) {
+    pub fn run(&mut self) {
         Self::help();
 
         let mut input = String::new();
@@ -53,19 +57,10 @@ impl Vault {
                     }
                     "insert" => {
                         if let Some(name) = itr.next() {
-                            if let Some(data) = itr.next() {
-                                match self.insert(name, Some(data)).await {
-                                    Ok(()) => (),
-                                    Err(error) => {
-                                        println!("Failed to insert: {}", error.to_string());
-                                    }
-                                }
-                            } else {
-                                match self.insert(name, None).await {
-                                    Ok(()) => (),
-                                    Err(error) => {
-                                        println!("Failed to insert: {}", error.to_string());
-                                    }
+                            match self.insert(name, itr.next()) {
+                                Ok(()) => (),
+                                Err(error) => {
+                                    println!("Failed to insert: {}", error.to_string());
                                 }
                             }
                         } else {
@@ -74,7 +69,7 @@ impl Vault {
                     }
                     "remove" => {
                         if let Some(data) = itr.next() {
-                            match self.remove(data).await {
+                            match self.remove(data) {
                                 Ok(()) => (),
                                 Err(error) => {
                                     println!("Failed to remove: {}", error.to_string());
@@ -86,7 +81,7 @@ impl Vault {
                     }
                     "get" => {
                         if let Some(data) = itr.next() {
-                            match self.get(data).await {
+                            match self.get(data) {
                                 Ok(result) => {
                                     println!(
                                         "insecure test \"{}\"",
@@ -95,16 +90,35 @@ impl Vault {
                                     )
                                 }
                                 Err(error) => {
-                                    println!("Failed to remove: {}", error.to_string());
+                                    println!("Failed to get: {}", error.to_string());
                                 }
                             }
                         } else {
                             println!("Expected a key")
                         }
                     }
+                    "list" | "ls" => match self.db.list() {
+                        Ok(list) => {
+                            let mut list_string = String::new();
+                            let last_value = list.len() - 1;
+                            let mut itr_number = 0;
+                            for value in list {
+                                if itr_number != last_value {
+                                    list_string += format!("{}, ", value).as_str();
+                                } else {
+                                    list_string += format!("{}", value).as_str();
+                                }
+                                itr_number += 1;
+                            }
+                            println!("{}", list_string);
+                        }
+                        Err(error) => {
+                            println!("Failed to list: {}", error.to_string());
+                        }
+                    },
                     "save" => {
                         if let Some(value) = itr.next() {
-                            self.serialize_and_save(value).await;
+                            self.serialize_and_save(value);
                             self.changed = false;
                         } else {
                             println!("Expected a filename");
@@ -117,7 +131,7 @@ impl Vault {
                 }
             }
 
-            println!("Operation complete\n");
+            // println!("Operation complete\n");
         }
 
         if self.changed {
@@ -148,7 +162,7 @@ impl Vault {
 
                             let mut itr = input.split_whitespace();
                             if let Some(value) = itr.next() {
-                                self.serialize_and_save(value).await;
+                                self.serialize_and_save(value);
                             }
                             break 'a;
                         }
@@ -162,7 +176,7 @@ impl Vault {
         }
     }
 
-    async fn insert(&mut self, name: &str, data: Option<&str>) -> Result<(), DatabaseError> {
+    fn insert(&mut self, name: &str, data: Option<&str>) -> Result<(), DatabaseError> {
         let password = match request_password("Enter the master password") {
             Ok(password) => password,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
@@ -170,54 +184,51 @@ impl Vault {
 
         let data_not_entered: Zeroizing<String>;
 
-        self.db
-            .insert(
-                name,
-                match data {
-                    Some(data) => data.as_bytes(),
-                    None => {
-                        data_not_entered =
-                            match request_password("Data wasn't provided, provide it here") {
-                                Ok(password) => password,
-                                Err(error) => {
-                                    return Err(DatabaseError::InputError(error.to_string()))
-                                }
-                            };
-                        data_not_entered.as_bytes()
-                    }
-                },
-                password.as_bytes(),
-            )
-            .await?;
+        self.db.insert(
+            name,
+            match data {
+                Some(data) => data.as_bytes(),
+                None => {
+                    data_not_entered =
+                        match request_password("Data wasn't provided, provide it here") {
+                            Ok(password) => password,
+                            Err(error) => return Err(DatabaseError::InputError(error.to_string())),
+                        };
+                    data_not_entered.as_bytes()
+                }
+            },
+            password.as_bytes(),
+        )?;
 
         self.changed = true;
         Ok(())
     }
 
-    async fn remove(&mut self, name: &str) -> Result<(), DatabaseError> {
+    fn remove(&mut self, name: &str) -> Result<(), DatabaseError> {
         let password = match request_password("Enter the master password") {
             Ok(password) => password,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
 
-        self.db.remove(name, password.as_bytes()).await?;
+        self.db.remove(name, password.as_bytes())?;
 
         self.changed = true;
 
         Ok(())
     }
 
-    async fn get(&self, name: &str) -> Result<AesResult, DatabaseError> {
+    fn get(&self, name: &str) -> Result<AesResult, DatabaseError> {
         let password = match request_password("Enter the master password") {
             Ok(password) => password,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
 
-        self.db.get(name, password.as_bytes()).await
+        self.db.get(name, password.as_bytes())
     }
 
-    async fn serialize_and_save(&self, file: &str) {
-        let data = match self.db.serialize().await {
+    fn serialize_and_save(&self, file: &str) {
+        // TODO encrypt on save
+        let data = match self.db.serialize() {
             Ok(data) => data,
             Err(error) => {
                 println!("Error failed to serialize database: {}", error);
@@ -243,6 +254,7 @@ impl Vault {
     remove <key>        - remove an element
     get    <key>        - retrieve an element
     save   <file>       - save to a file
+    list                - list all keys
     exit                - exit the program"
         )
     }
