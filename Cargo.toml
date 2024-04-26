@@ -1,5 +1,5 @@
 [workspace]
-members = [ "pwm-cli", "pwm-db", "pwm-lib"]
+members = [ "pwm-cli", "pwm-db", "pwm-lib", "pwm-proc"]
 resolver = "2"
 
 

@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+pwm-proc = {path = "../pwm-proc"}
 aead = "0.5.2"
 aes-gcm = "0.10.3"
 argon2 = "0.5.3"

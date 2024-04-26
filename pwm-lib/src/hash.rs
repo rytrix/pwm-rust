@@ -4,8 +4,19 @@ pub mod scrypt_wrapper;
 pub mod sha_wrapper;
 
 use aead::rand_core::RngCore;
+use pbkdf2::pbkdf2_hmac;
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
+
+static PEPPER: [u8; 32] = pwm_proc::random_number!();
+static PBKDF2_DEFAULT_N: u32 = 210_000;
+
+fn pepper_hash(hash: &mut [u8]) {
+    let mut old = [0; 32];
+    old.copy_from_slice(hash);
+    pbkdf2_hmac::<sha2::Sha512>(&old, &PEPPER, PBKDF2_DEFAULT_N, hash);
+    old.zeroize();
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct HashResult {
@@ -60,7 +71,6 @@ impl HashResult {
 
         Ok(result)
     }
-
 
     pub fn get_salt(&self) -> &[u8] {
         &self.salt

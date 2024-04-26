@@ -21,6 +21,8 @@ pub fn argon2_hash_password_into(password: &[u8], result: &mut HashResult) -> Re
         Err(error) => return Err(HashError::new(error.to_string().as_str())),
     }
 
+    super::pepper_hash(&mut result.hash);
+
     Ok(())
 }
 

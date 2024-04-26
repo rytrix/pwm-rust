@@ -1,8 +1,6 @@
 use std::io::Write;
 
-// use pwm_lib::scrypt_wrapper::scrypt_hash_password;
 use pwm_lib::hash::argon2_wrapper::{argon2_hash_password, argon2_hash_password_with_salt};
-// use pwm_lib::hash::pbkdf2_wrapper::pbkdf2_hash_password;
 
 use pwm_lib::aes_wrapper::{aes_gcm_decrypt, aes_gcm_encrypt, AesResult};
 use pwm_lib::zeroize::Zeroizing;
