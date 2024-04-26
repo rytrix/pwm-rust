@@ -1,5 +1,9 @@
 use pwm_db::{db_base::DatabaseError, db_encrypted::DatabaseEncrypted};
-use pwm_lib::{aes_wrapper::AesResult, zeroize::Zeroizing};
+use pwm_lib::{
+    aes_wrapper::{aes_gcm_decrypt, aes_gcm_encrypt, AesResult},
+    hash::argon2_wrapper::{argon2_hash_password, argon2_hash_password_with_salt},
+    zeroize::Zeroizing,
+};
 
 use crate::crypt_file::{password_confirmation, request_password};
 
@@ -26,11 +30,30 @@ impl Vault {
 
     pub fn new_from_file(file: &str) -> Result<Self, DatabaseError> {
         let contents = match std::fs::read(file) {
-            Ok(contents) => Zeroizing::new(contents),
+            Ok(contents) => match AesResult::new(contents) {
+                Ok(contents) => contents,
+                Err(error) => return Err(DatabaseError::InputError(error.to_string())),
+            },
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
 
-        let db = DatabaseEncrypted::new_deserialize(contents.as_slice())?;
+        let password = match request_password("Enter master password") {
+            Ok(value) => value,
+            Err(error) => return Err(DatabaseError::InputError(error.to_string())),
+        };
+
+        let hash =
+            match argon2_hash_password_with_salt(password.as_bytes(), contents.get_salt_slice()) {
+                Ok(value) => value,
+                Err(error) => return Err(DatabaseError::FailedHash(error.to_string())),
+            };
+
+        let plaintext = match aes_gcm_decrypt(hash.get_hash(), &contents) {
+            Ok(plaintext) => plaintext,
+            Err(error) => return Err(DatabaseError::FailedAes(error.to_string())),
+        };
+
+        let db = DatabaseEncrypted::new_deserialize(plaintext.as_slice())?;
 
         Ok(Self { db, changed: false })
     }
@@ -227,7 +250,6 @@ impl Vault {
     }
 
     fn serialize_and_save(&self, file: &str) {
-        // TODO encrypt on save
         let data = match self.db.serialize() {
             Ok(data) => data,
             Err(error) => {
@@ -236,8 +258,32 @@ impl Vault {
             }
         };
 
+        let password = match request_password("Enter master password") {
+            Ok(pass) => pass,
+            Err(error) => {
+                println!("Error failed to get user input {}", error);
+                return;
+            }
+        };
+
+        let hash = match argon2_hash_password(password.as_bytes()) {
+            Ok(hash) => hash,
+            Err(error) => {
+                println!("Error failed to hash password {}", error);
+                return;
+            }
+        };
+
+        let ciphertext = match aes_gcm_encrypt(&hash, data.as_slice()) {
+            Ok(ciphertext) => ciphertext,
+            Err(error) => {
+                println!("Failed to encrypt db: {}", error.to_string());
+                return;
+            }
+        };
+
         println!("Writing to file \"{}\"", file);
-        match std::fs::write(file, &data) {
+        match std::fs::write(file, ciphertext.as_ref()) {
             Ok(()) => (),
             Err(error) => {
                 println!("Error failed to write to file: {}", error);
