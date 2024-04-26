@@ -13,6 +13,12 @@ pub struct AesResult {
 }
 
 impl AesResult {
+    pub fn new(data: Vec<u8>) -> Self {
+        Self {
+            data
+        }
+    }
+
     pub fn as_ref(&self) -> &Vec<u8> {
         &self.data
     }
@@ -47,6 +53,7 @@ pub fn random_key() -> zeroize::Zeroizing<[u8; 32]> {
     return Zeroizing::new(key.into());
 }
 
+// Salt is appended to the end of the cipher
 pub fn aes_gcm_encrypt(
     hash_result: &HashResult,
     plaintext: &[u8],

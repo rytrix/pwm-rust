@@ -7,5 +7,5 @@ edition = "2021"
 
 [dependencies]
 pwm-lib = { path = "../pwm-lib" }
-# rusqlite = {version = "0.31.0", features = ["bundled", "serialize"]}
-# rocksdb = { version = "0.22.0", features = "zstd" }
+clap = { version = "4.5.4", features = ["derive"] }
+rpassword = "7.3.1"
