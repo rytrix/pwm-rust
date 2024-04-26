@@ -1,16 +1,7 @@
 use pwm_db::{db_base::DatabaseError, db_encrypted::DatabaseEncrypted};
-use pwm_lib::{
-    aes_wrapper::{aes_gcm_decrypt, aes_gcm_encrypt, AesResult},
-    hash::argon2_wrapper::{argon2_hash_password, argon2_hash_password_with_salt},
-    zeroize::Zeroizing,
-};
+use pwm_lib::{aes_wrapper::AesResult, zeroize::Zeroizing};
 
 use crate::crypt_file::{password_confirmation, request_password};
-
-// enum VaultResult {
-//     None(Result<(), DatabaseError>),
-//     Aes(Result<AesResult, DatabaseError>),
-// }
 
 pub struct Vault {
     db: DatabaseEncrypted,
@@ -42,18 +33,7 @@ impl Vault {
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
 
-        let hash =
-            match argon2_hash_password_with_salt(password.as_bytes(), contents.get_salt_slice()) {
-                Ok(value) => value,
-                Err(error) => return Err(DatabaseError::FailedHash(error.to_string())),
-            };
-
-        let plaintext = match aes_gcm_decrypt(hash.get_hash(), &contents) {
-            Ok(plaintext) => plaintext,
-            Err(error) => return Err(DatabaseError::FailedAes(error.to_string())),
-        };
-
-        let db = DatabaseEncrypted::new_deserialize(plaintext.as_slice())?;
+        let db = DatabaseEncrypted::new_deserialize_encrypted(&contents, password.as_bytes())?;
 
         Ok(Self { db, changed: false })
     }
@@ -250,14 +230,6 @@ impl Vault {
     }
 
     fn serialize_and_save(&self, file: &str) {
-        let data = match self.db.serialize() {
-            Ok(data) => data,
-            Err(error) => {
-                println!("Error failed to serialize database: {}", error);
-                return;
-            }
-        };
-
         let password = match request_password("Enter master password") {
             Ok(pass) => pass,
             Err(error) => {
@@ -266,18 +238,10 @@ impl Vault {
             }
         };
 
-        let hash = match argon2_hash_password(password.as_bytes()) {
-            Ok(hash) => hash,
+        let ciphertext = match self.db.serialize_encrypted(password.as_bytes()) {
+            Ok(data) => data,
             Err(error) => {
-                println!("Error failed to hash password {}", error);
-                return;
-            }
-        };
-
-        let ciphertext = match aes_gcm_encrypt(&hash, data.as_slice()) {
-            Ok(ciphertext) => ciphertext,
-            Err(error) => {
-                println!("Failed to encrypt db: {}", error.to_string());
+                println!("Error failed to serialize database: {}", error);
                 return;
             }
         };

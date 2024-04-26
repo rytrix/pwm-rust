@@ -7,6 +7,7 @@ use pwm_lib::{
         pbkdf2_wrapper::pbkdf2_hash_password_with_salt,
         randomize_slice, HashResult,
     },
+    zeroize::Zeroizing,
 };
 
 pub struct DatabaseEncrypted {
@@ -28,7 +29,7 @@ impl DatabaseEncrypted {
         return Ok(db);
     }
 
-    pub fn new_deserialize(serialized: &[u8]) -> Result<Self, DatabaseError> {
+    fn new_deserialize(serialized: &[u8]) -> Result<Self, DatabaseError> {
         let hash = match HashResult::new_with_salt_and_hash(
             &serialized[serialized.len() - 32..],
             &serialized[serialized.len() - 64..serialized.len() - 32],
@@ -47,6 +48,23 @@ impl DatabaseEncrypted {
             db: db,
             pw_hash: hash,
         })
+    }
+
+    pub fn new_deserialize_encrypted(
+        serialized: &AesResult,
+        password: &[u8],
+    ) -> Result<Self, DatabaseError> {
+        let hash = match argon2_hash_password_with_salt(password, serialized.get_salt_slice()) {
+            Ok(value) => value,
+            Err(error) => return Err(DatabaseError::FailedHash(error.to_string())),
+        };
+
+        let plaintext = match aes_gcm_decrypt(hash.get_hash(), serialized) {
+            Ok(plaintext) => plaintext,
+            Err(error) => return Err(DatabaseError::FailedAes(error.to_string())),
+        };
+
+        Self::new_deserialize(plaintext.as_slice())
     }
 
     pub fn insert(
@@ -131,9 +149,9 @@ impl DatabaseEncrypted {
         compare_hash(result.get_hash(), self.pw_hash.get_hash())
     }
 
-    pub fn serialize(&self) -> Result<Vec<u8>, DatabaseError> {
+    fn serialize(&self) -> Result<Zeroizing<Vec<u8>>, DatabaseError> {
         let mut data = match bincode::serialize(self.db.as_ref()) {
-            Ok(data) => data,
+            Ok(data) => Zeroizing::new(data),
             Err(_err) => return Err(DatabaseError::FailedDeserialize),
         };
 
@@ -141,6 +159,22 @@ impl DatabaseEncrypted {
         data.extend_from_slice(self.pw_hash.get_salt());
 
         Ok(data)
+    }
+
+    pub fn serialize_encrypted(&self, password: &[u8]) -> Result<AesResult, DatabaseError> {
+        let data = self.serialize()?;
+
+        let hash = match argon2_hash_password(password) {
+            Ok(hash) => hash,
+            Err(error) => return Err(DatabaseError::FailedHash(error.to_string())),
+        };
+
+        let ciphertext = match aes_gcm_encrypt(&hash, data.as_slice()) {
+            Ok(ciphertext) => ciphertext,
+            Err(error) => return Err(DatabaseError::FailedAes(error.to_string())),
+        };
+
+        Ok(ciphertext)
     }
 }
 
@@ -153,11 +187,16 @@ mod test {
         let mut db = DatabaseEncrypted::new(b"test").unwrap();
         db.insert("ryan", b"password", b"test").unwrap();
         db.insert("ryan2", b"password", b"test").unwrap();
+        let list = db.list().unwrap();
+        assert_eq!(list.contains(&"ryan".to_string()), true);
+        assert_eq!(list.contains(&"ryan2".to_string()), true);
 
         let pass = db.get("ryan", b"test").unwrap();
         assert_eq!(b"password", pass.as_slice());
         db.remove("ryan2", b"test").unwrap();
         db.remove("ryan", b"test").unwrap();
+        let list = db.list().unwrap();
+        assert_eq!(list.len(), 0);
     }
 
     #[test]
@@ -168,6 +207,19 @@ mod test {
 
         let serialized = db.serialize().unwrap();
         let db = DatabaseEncrypted::new_deserialize(serialized.as_slice()).unwrap();
+
+        let pass = db.get("ryan", b"test").unwrap();
+        assert_eq!(b"password", pass.as_slice())
+    }
+
+    #[test]
+    fn test_serialize_deserialize_encrypted() {
+        let mut db = DatabaseEncrypted::new(b"test").unwrap();
+        db.insert("ryan", b"password", b"test").unwrap();
+        db.insert("ryan2", b"password", b"test").unwrap();
+
+        let serialized = db.serialize_encrypted(b"test").unwrap();
+        let db = DatabaseEncrypted::new_deserialize_encrypted(&serialized, b"test").unwrap();
 
         let pass = db.get("ryan", b"test").unwrap();
         assert_eq!(b"password", pass.as_slice())
