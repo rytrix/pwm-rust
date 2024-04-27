@@ -3,8 +3,7 @@ use sha2::Sha512;
 
 use crate::hash::{HashError, HashResult};
 
-// https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#pbkdf2
-// Updated April 26 of 2024
+// Updated April 25, 2024
 pub fn pbkdf2_hash_password_into(
     password: &[u8],
     result: &mut HashResult,
@@ -15,7 +14,9 @@ pub fn pbkdf2_hash_password_into(
         super::PBKDF2_DEFAULT_N,
         &mut result.hash,
     );
-    super::pepper_hash(&mut result.hash);
+
+    #[cfg(feature = "pepper")]
+    super::pepper::pepper_hash(&mut result.hash);
     Ok(())
 }
 

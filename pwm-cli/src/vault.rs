@@ -86,11 +86,18 @@ impl Vault {
                         if let Some(data) = itr.next() {
                             match self.get(data) {
                                 Ok(result) => {
-                                    println!(
-                                        "insecure test \"{}\"",
-                                        String::from_utf8(result.as_slice().to_vec())
-                                            .expect("failed to convert crypt result to string")
-                                    )
+                                    let pass = match String::from_utf8(result.as_slice().to_vec()) {
+                                        Ok(val) => Zeroizing::new(val),
+                                        Err(error) => {
+                                            println!(
+                                                "Failed to convert data to String: {}",
+                                                error.to_string()
+                                            );
+                                            Zeroizing::new("".to_string())
+                                        }
+                                    };
+
+                                    println!("{}", pass.as_str());
                                 }
                                 Err(error) => {
                                     println!("Failed to get: {}", error.to_string());

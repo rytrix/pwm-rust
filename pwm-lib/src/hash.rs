@@ -4,19 +4,26 @@ pub mod scrypt_wrapper;
 pub mod sha_wrapper;
 
 use aead::rand_core::RngCore;
-use pbkdf2::pbkdf2_hmac;
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
 
-static PEPPER: [u8; 32] = pwm_proc::random_number!();
-static PBKDF2_DEFAULT_N: u32 = 210_000;
+#[cfg(feature = "pepper")]
+mod pepper {
+    use zeroize::Zeroize;
+    use super::PBKDF2_DEFAULT_N;
+    static PEPPER: [u8; 32] = pwm_proc::random_number!();
 
-fn pepper_hash(hash: &mut [u8]) {
-    let mut old = [0; 32];
-    old.copy_from_slice(hash);
-    pbkdf2_hmac::<sha2::Sha512>(&old, &PEPPER, PBKDF2_DEFAULT_N, hash);
-    old.zeroize();
+    pub fn pepper_hash(hash: &mut [u8]) {
+        let mut old = [0; 32];
+        old.copy_from_slice(hash);
+        pbkdf2::pbkdf2_hmac::<sha2::Sha512>(&old, &PEPPER, PBKDF2_DEFAULT_N, hash);
+        old.zeroize();
+    }
 }
+
+// https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#pbkdf2
+// Updated April 26 of 2024
+static PBKDF2_DEFAULT_N: u32 = 210_000;
 
 #[derive(Serialize, Deserialize)]
 pub struct HashResult {

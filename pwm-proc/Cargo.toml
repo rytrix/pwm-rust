@@ -10,4 +10,3 @@ proc-macro = true
 
 [dependencies]
 getrandom = "0.2.14"
-aead = "0.5.2"

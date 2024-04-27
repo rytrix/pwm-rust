@@ -35,7 +35,8 @@ pub fn scrypt_hash_password_into(
         }
     }
 
-    super::pepper_hash(&mut result.hash);
+    #[cfg(feature = "pepper")]
+    super::pepper::pepper_hash(&mut result.hash);
 
     Ok(())
 }
