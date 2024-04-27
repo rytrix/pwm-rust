@@ -137,7 +137,9 @@ impl Vault {
                     "exit" | "quit" | "q" => {
                         break 'a;
                     }
-                    _ => {}
+                    _ => {
+                        println!("Invalid command");
+                    }
                 }
             }
 
