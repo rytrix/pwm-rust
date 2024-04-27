@@ -85,6 +85,4 @@ fn main() {
     } else {
         println!("to many arguments provided, only provide encrypt, decrypt, vault or create");
     }
-
-    println!("exiting");
 }

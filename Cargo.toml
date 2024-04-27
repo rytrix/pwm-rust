@@ -1,3 +1,7 @@
 [workspace]
-members = [ "pwm-cli", "pwm-db", "pwm-lib", "pwm-proc"]
+members = [ "pwm-cli", "pwm-db", "pwm-gui", "pwm-lib", "pwm-proc"]
 resolver = "2"
+
+[profile.release]
+strip = "symbols"
+lto = "fat"

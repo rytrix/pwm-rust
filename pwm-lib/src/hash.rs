@@ -11,7 +11,7 @@ use zeroize::Zeroize;
 mod pepper {
     use zeroize::Zeroize;
     use super::PBKDF2_DEFAULT_N;
-    static PEPPER: [u8; 32] = pwm_proc::random_number!();
+    static PEPPER: [u8; 32] = pwm_proc::random_pepper!();
 
     pub fn pepper_hash(hash: &mut [u8]) {
         let mut old = [0; 32];

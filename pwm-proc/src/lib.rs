@@ -8,7 +8,7 @@ use proc_macro::TokenStream;
 static PEPPER_PATH: &str = "private/pepper";
 
 #[proc_macro]
-pub fn random_number(_input: TokenStream) -> TokenStream {
+pub fn random_pepper(_input: TokenStream) -> TokenStream {
     let mut random: [u8; 32] = [0; 32];
     match std::fs::metadata(PEPPER_PATH) {
         Ok(_) => {
