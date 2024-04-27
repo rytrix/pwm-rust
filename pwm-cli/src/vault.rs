@@ -55,10 +55,10 @@ impl Vault {
             let mut itr = input.split_whitespace();
             if let Some(value) = itr.next() {
                 match value {
-                    "help" => {
+                    "help" | "h" => {
                         Self::help();
                     }
-                    "insert" => {
+                    "insert" | "add" | "i" | "a" => {
                         if let Some(name) = itr.next() {
                             match self.insert(name, itr.next()) {
                                 Ok(()) => (),
@@ -70,7 +70,7 @@ impl Vault {
                             println!("Expected a key");
                         }
                     }
-                    "remove" => {
+                    "remove" | "rm" | "r" => {
                         if let Some(data) = itr.next() {
                             match self.remove(data) {
                                 Ok(()) => (),
@@ -82,7 +82,7 @@ impl Vault {
                             println!("Expected a key")
                         }
                     }
-                    "get" => {
+                    "get" | "g" => {
                         if let Some(data) = itr.next() {
                             match self.get(data) {
                                 Ok(result) => {
@@ -107,7 +107,7 @@ impl Vault {
                             println!("Expected a key")
                         }
                     }
-                    "list" | "ls" => match self.db.list() {
+                    "list" | "ls" | "l" => match self.db.list() {
                         Ok(list) => {
                             let mut list_string = String::new();
                             let last_value = list.len() - 1;
@@ -126,7 +126,7 @@ impl Vault {
                             println!("Failed to list: {}", error.to_string());
                         }
                     },
-                    "save" => {
+                    "save" | "s" => {
                         if let Some(value) = itr.next() {
                             self.serialize_and_save(value);
                             self.changed = false;
