@@ -8,4 +8,7 @@ edition = "2021"
 [dependencies]
 pwm-db = {path = "../pwm-db"}
 pwm-lib = {path = "../pwm-lib"}
-iced = "0.12.1"
+eframe = "0.27.2"
+egui_extras = "0.27.2"
+env_logger = "0.11.3"
+# gtk4 = "0.8.2"
