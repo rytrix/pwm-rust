@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 pwm-lib = { path = "../pwm-lib" }
-pwm-db = { path = "../pwm-db", features = ["forget-hash"] }
+pwm-db = { path = "../pwm-db" }
 clap = { version = "4.5.4", features = ["derive"] }
 # Check this for testing pws
 rpassword = "7.3.1"

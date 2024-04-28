@@ -13,30 +13,52 @@ use pwm_lib::{
 pub struct DatabaseEncrypted {
     db: Database<AesResult>,
     confirmation_hash: HashResult,
-    #[cfg(feature = "keep-hash")]
-    pw_hash: HashResult,
 }
 
 impl DatabaseEncrypted {
     // Common
     pub fn new(password: &[u8]) -> Result<Self, DatabaseError> {
         let hash = Self::hash_password_pbkdf2(password)?;
-        let argon2_hash = Self::hash_password_argon2(password)?;
+
+        // let argon2_hash = Self::hash_password_argon2(password)?;
 
         let db = Self {
             db: Database::new(),
             confirmation_hash: hash,
-            #[cfg(feature = "keep-hash")]
-            pw_hash: argon2_hash,
         };
 
-        return Ok(db);
+        Ok(db)
     }
 
-    pub fn new_deserialize_encrypted(
+    fn new_deserialize(serialized: &[u8], password: &[u8]) -> Result<Self, DatabaseError> {
+        let hash = match HashResult::new_with_salt_and_hash(
+            &serialized[serialized.len() - 32..],
+            &serialized[serialized.len() - 64..serialized.len() - 32],
+        ) {
+            Ok(hash) => hash,
+            Err(_error) => return Err(DatabaseError::FailedDeserialize),
+        };
+
+        if !Self::hash_password_and_compare_internal(&hash, password) {
+            return Err(DatabaseError::InvalidPassword);
+        }
+
+        let db: Database<AesResult> =
+            match bincode::deserialize(&serialized[..serialized.len() - 64]) {
+                Ok(db) => db,
+                Err(_error) => return Err(DatabaseError::FailedDeserialize),
+            };
+
+        Ok(Self {
+            db,
+            confirmation_hash: hash,
+        })
+    }
+
+    fn new_deserialize_encrypted_internal(
         serialized: &AesResult,
         password: &[u8],
-    ) -> Result<Self, DatabaseError> {
+    ) -> Result<(Self, HashResult), DatabaseError> {
         let hash = Self::hash_password_argon2_with_salt(password, serialized.get_salt_slice())?;
 
         let plaintext = match aes_gcm_decrypt(hash.get_hash(), serialized) {
@@ -44,34 +66,9 @@ impl DatabaseEncrypted {
             Err(error) => return Err(DatabaseError::FailedAes(error.to_string())),
         };
 
-        let result = |serialized: &[u8], argon2_hash: HashResult| {
-            let hash = match HashResult::new_with_salt_and_hash(
-                &serialized[serialized.len() - 32..],
-                &serialized[serialized.len() - 64..serialized.len() - 32],
-            ) {
-                Ok(hash) => hash,
-                Err(_error) => return Err(DatabaseError::FailedDeserialize),
-            };
+        let result = Self::new_deserialize(plaintext.as_slice(), password)?;
 
-            if !Self::hash_password_and_compare_internal(&hash, password) {
-                return Err(DatabaseError::InvalidPassword);
-            }
-
-            let db: Database<AesResult> =
-                match bincode::deserialize(&serialized[..serialized.len() - 64]) {
-                    Ok(db) => db,
-                    Err(_error) => return Err(DatabaseError::FailedDeserialize),
-                };
-
-            Ok(Self {
-                db: db,
-                confirmation_hash: hash,
-                #[cfg(feature = "keep-hash")]
-                pw_hash: argon2_hash,
-            })
-        };
-
-        result(plaintext.as_slice(), hash)
+        Ok((result, hash))
     }
 
     fn serialize(&self) -> Result<Zeroizing<Vec<u8>>, DatabaseError> {
@@ -153,10 +150,8 @@ impl DatabaseEncrypted {
 #[cfg(feature = "keep-hash")]
 pub mod keep_hash;
 
-#[cfg(feature = "forget-hash")]
 pub mod forget_hash;
 
-#[cfg(feature = "forget-hash")]
 #[cfg(test)]
 mod test_forget {
     use crate::db_encrypted::forget_hash::DatabaseInterface;

@@ -5,6 +5,10 @@ use crate::db_base::DatabaseError;
 use super::DatabaseEncrypted;
 
 pub trait DatabaseInterface {
+    fn new_deserialize_encrypted(
+        serialized: &AesResult,
+        password: &[u8],
+    ) -> Result<DatabaseEncrypted, DatabaseError>;
     fn insert(&mut self, name: &str, data: &[u8], password: &[u8]) -> Result<(), DatabaseError>;
     fn remove(&mut self, name: &str, password: &[u8]) -> Result<(), DatabaseError>;
     fn get(&self, name: &str, password: &[u8]) -> Result<AesResult, DatabaseError>;
@@ -12,6 +16,14 @@ pub trait DatabaseInterface {
 }
 
 impl DatabaseInterface for DatabaseEncrypted {
+    fn new_deserialize_encrypted(
+        serialized: &AesResult,
+        password: &[u8],
+    ) -> Result<DatabaseEncrypted, DatabaseError> {
+        let (db, _hash) = Self::new_deserialize_encrypted_internal(serialized, password)?;
+        Ok(db)
+    }
+
     fn insert(&mut self, name: &str, data: &[u8], password: &[u8]) -> Result<(), DatabaseError> {
         if !self.hash_password_and_compare(password) {
             return Err(DatabaseError::InvalidPassword);
