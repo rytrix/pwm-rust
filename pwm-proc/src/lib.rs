@@ -16,6 +16,7 @@ pub fn random_pepper(_input: TokenStream) -> TokenStream {
             file.read(&mut random).unwrap();
         }
         Err(_error) => {
+            std::fs::create_dir_all("private").unwrap();
             getrandom(&mut random).unwrap();
             std::fs::write(PEPPER_PATH, &random).unwrap();
         }
