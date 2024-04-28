@@ -6,7 +6,5 @@ edition = "2021"
 [lib]
 proc-macro = true
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 getrandom = "0.2.14"

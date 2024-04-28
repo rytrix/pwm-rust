@@ -1,4 +1,4 @@
-use pwm_db::{db_base::DatabaseError, db_encrypted::DatabaseEncrypted};
+use pwm_db::{db_base::DatabaseError, db_encrypted::{DatabaseEncrypted, forget_hash::DatabaseInterface}};
 use pwm_lib::{aes_wrapper::AesResult, zeroize::Zeroizing};
 
 use crate::crypt_file::{password_confirmation, request_password};
