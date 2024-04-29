@@ -7,7 +7,7 @@ use pwm_lib::{
     hash::{argon2_wrapper::argon2_hash_password, HashResult},
 };
 
-struct Vault {
+pub struct Vault {
     db: DatabaseEncrypted,
     hash: HashResult,
     changed: bool,

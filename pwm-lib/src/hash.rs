@@ -9,8 +9,8 @@ use zeroize::Zeroize;
 
 #[cfg(feature = "pepper")]
 mod pepper {
-    use zeroize::Zeroize;
     use super::PBKDF2_DEFAULT_N;
+    use zeroize::Zeroize;
     static PEPPER: [u8; 32] = pwm_proc::random_pepper!();
 
     pub fn pepper_hash(hash: &mut [u8]) {
@@ -77,6 +77,13 @@ impl HashResult {
         result.hash.copy_from_slice(hash);
 
         Ok(result)
+    }
+
+    pub fn zeroed() -> HashResult {
+        HashResult {
+            salt: [0; 32],
+            hash: [0; 32],
+        }
     }
 
     pub fn get_salt(&self) -> &[u8] {

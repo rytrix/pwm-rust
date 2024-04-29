@@ -40,7 +40,7 @@ impl DatabaseEncrypted {
         };
 
         if !Self::hash_password_and_compare_internal(&hash, password) {
-            return Err(DatabaseError::InvalidPassword);
+            return Err(DatabaseError::InvalidPassword)
         }
 
         let db: Database<AesResult> =

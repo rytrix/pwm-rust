@@ -1,7 +1,8 @@
-mod crypt_file;
+mod password;
 mod vault;
 
-use crate::{crypt_file::{decrypt_file, encrypt_file}, vault::Vault};
+use crate::{password::{password_confirmation, request_password}, vault::Vault};
+use pwm_lib::crypt_file::{decrypt_file, encrypt_file};
 
 use clap::{ArgAction, Parser};
 
@@ -29,14 +30,15 @@ struct Args {
     out: Option<String>,
 }
 
-fn main() {
+fn main() -> Result<(), std::io::Error> {
     let args = Args::parse();
 
     if args.decrypt.is_none() && args.vault.is_none() && !args.create {
         // Encrypt
         if let Some(name) = args.encrypt {
             println!("Encrypting file {}", name);
-            if let Err(error) = encrypt_file(name, args.out) {
+            let password = password_confirmation()?;
+            if let Err(error) = encrypt_file(name, args.out, password.as_bytes()) {
                 println!("Error: {}", error.to_string());
             }
         }
@@ -44,7 +46,8 @@ fn main() {
         // Decrypt
         if let Some(name) = args.decrypt {
             println!("Decrypting file {}", name);
-            if let Err(error) = decrypt_file(name, args.out) {
+            let password = request_password("Enter your password")?;
+            if let Err(error) = decrypt_file(name, args.out, password.as_bytes()) {
                 println!("Error: {}", error);
             }
         }
@@ -59,7 +62,7 @@ fn main() {
                 Ok(vault) => vault,
                 Err(error) => {
                     println!("Error: {}", error.to_string());
-                    return;
+                    return Ok(());
                 }
             };
 
@@ -76,7 +79,7 @@ fn main() {
                 Ok(vault) => vault,
                 Err(error) => {
                     println!("Error: {}", error.to_string());
-                    return;
+                    return Ok(());
                 }
             };
 
@@ -85,4 +88,6 @@ fn main() {
     } else {
         println!("to many arguments provided, only provide encrypt, decrypt, vault or create");
     }
+
+    Ok(())
 }

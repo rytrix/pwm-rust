@@ -20,13 +20,16 @@ impl Gui {
             }
 
             if ui.button("Enter").clicked() {
-                self.password.clear();
+                // TODO hash and store password
+                self.password_mode = false;
+                self.handle_event();
+                self.password_buffer.clear();
             }
 
             // Show the password field:
             ui.add_sized(
                 ui.available_size(),
-                egui::TextEdit::singleline(&mut self.password).password(!show_plaintext),
+                egui::TextEdit::singleline(&mut self.password_buffer).password(!show_plaintext),
             );
         });
 
