@@ -11,10 +11,11 @@ pub struct Vault {
     db: DatabaseEncrypted,
     hash: HashResult,
     changed: bool,
+    pub name: String,
 }
 
 impl Vault {
-    pub fn new(password: &[u8]) -> Result<Self, DatabaseError> {
+    pub fn new(name: &str, password: &[u8]) -> Result<Self, DatabaseError> {
         let db = DatabaseEncrypted::new(password)?;
         let hash = match argon2_hash_password(password) {
             Ok(value) => value,
@@ -24,6 +25,7 @@ impl Vault {
             db,
             hash,
             changed: true,
+            name: String::from(name),
         })
     }
 
@@ -42,6 +44,7 @@ impl Vault {
             db,
             hash,
             changed: false,
+            name: String::from(file),
         })
     }
 

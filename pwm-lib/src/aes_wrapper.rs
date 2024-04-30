@@ -7,7 +7,7 @@ use zeroize::{Zeroize, Zeroizing};
 
 use crate::hash::HashResult;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AesResult {
     data: Vec<u8>,
 }

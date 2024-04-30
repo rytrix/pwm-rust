@@ -1,10 +1,13 @@
 mod password;
+mod timer;
 mod vault;
 
-use std::path::PathBuf;
+use timer::Timer;
+
+use std::{path::PathBuf, time::Duration};
 
 use eframe::egui;
-use pwm_lib::{crypt_file::{self, decrypt_file, encrypt_file}, hash::HashResult};
+use pwm_lib::{aes_wrapper::AesResult, crypt_file::{decrypt_file, encrypt_file}};
 use vault::Vault;
 
 fn main() -> Result<(), eframe::Error> {
@@ -16,27 +19,59 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native("PWM Vault", options, Box::new(|_cc| Box::<Gui>::default()))
 }
 
+#[derive(Debug, Clone)]
 enum Event {
+    Error(String),
+
+    Create,
+    Open(String),
+    Save(String),
+    SaveAs(String),
+
     Encrypt(String),
     Decrypt(String),
+
+    Get(String),
+    Insert(String, AesResult),
+    Remove(String),
 }
 
 struct Gui {
     scale: f32,
     prev_file: Option<String>,
 
+    error_msg: String,
+    error_timer: Option<Timer>,
+
     password_mode: bool,
     password_buffer: String,
-    password_hash: HashResult, // maybe?
 
-    vault_name: Option<String>,
     vault: Option<Vault>,
 
     events: Vec<Event>,
 }
 
+impl Default for Gui {
+    fn default() -> Self {
+        Self {
+            scale: 1.8,
+            prev_file: Some(String::new()),
+
+            error_msg: String::new(),
+            error_timer: None,
+
+            password_mode: false,
+            password_buffer: String::new(),
+
+            vault: None,
+
+            events: Vec::new(),
+        }
+    }
+}
+
 impl Gui {
-    fn open_file_dialogue() -> Option<PathBuf> {
+    fn open_file_dialog() -> Option<PathBuf> {
         let mut dialog = rfd::FileDialog::new();
 
         match std::env::current_dir() {
@@ -53,35 +88,38 @@ impl Gui {
         // eprintln!("Selected file {}", path.display().to_string());
     }
 
+    fn enable_error_mode(&mut self, msg: String) {
+        self.error_msg = msg;
+        self.error_timer = Some(Timer::new(Duration::from_secs(8)));
+    }
+
     fn handle_event(&mut self) {
         let event = self.events.pop();
         if let Some(event) = event {
             match event {
                 Event::Encrypt(file) => {
-                    encrypt_file(file, None, self.password_buffer.as_bytes()).unwrap();
+                    match encrypt_file(file, None, self.password_buffer.as_bytes()) {
+                        Ok(()) => (),
+                        Err(error) => {
+                            self.enable_error_mode(error.to_string());
+                        }
+                    };
                 }
                 Event::Decrypt(file) => {
-                    decrypt_file(file, None, self.password_buffer.as_bytes()).unwrap();
+                    match decrypt_file(file, None, self.password_buffer.as_bytes()) {
+                        Ok(()) => (),
+                        Err(_error) => {
+                            self.enable_error_mode(String::from("Failed to decrypt file"));
+                        }
+                    };
+                }
+                Event::Error(error) => {
+                    self.enable_error_mode(error);
+                }
+                _ => {
+                    eprintln!("NYI");
                 }
             }
-        }
-    }
-}
-
-impl Default for Gui {
-    fn default() -> Self {
-        Self {
-            scale: 1.8,
-            prev_file: Some(String::new()),
-
-            password_mode: false,
-            password_buffer: String::new(),
-            password_hash: HashResult::zeroed(),
-
-            vault_name: Some(String::from("test")),
-            vault: None,
-
-            events: Vec::new(),
         }
     }
 }
@@ -101,38 +139,42 @@ impl eframe::App for Gui {
             // Top Bar
             ui.horizontal(|ui| {
                 ui.menu_button("File", |ui| {
-                    ui.button("Create").clicked();
+                    if ui.button("Create").clicked() {
+                        self.events.push(Event::Create);
+                    }
                     if ui.button("Open").clicked() {
-                        if let Some(path) = Self::open_file_dialogue() {
-                            self.prev_file = Some(path.display().to_string());
-                            eprintln!("Selected file {}", path.display().to_string());
-                            // TODO create a vault from file and password hash?
+                        if let Some(path) = Self::open_file_dialog() {
+                            self.events.push(Event::Open(path.display().to_string()));
                         }
                     }
                     if ui.button("Save").clicked() {
-                        // TODO save vault to prev_file
+                        if let Some(prev_file) = &self.prev_file {
+                            self.events.push(Event::Save(prev_file.clone()));
+                        } else {
+                            if let Some(path) = Self::open_file_dialog() {
+                                self.events.push(Event::SaveAs(path.display().to_string()));
+                            }
+                        }
                     }
                     if ui.button("Save As").clicked() {
-                        if let Some(path) = Self::open_file_dialogue() {
-                            self.prev_file = Some(path.display().to_string());
-                            eprintln!("Selected file {}", path.display().to_string());
-                            // TODO save to prev_file
+                        if let Some(path) = Self::open_file_dialog() {
+                            self.events.push(Event::SaveAs(path.display().to_string()));
                         }
                     }
                 });
 
                 ui.menu_button("Options", |ui| {
-                    ui.add(egui::Slider::new(&mut self.scale, 1.0..=2.0).text("UI Scale"));
+                    ui.add(egui::Slider::new(&mut self.scale, 1.0..=3.0).text("UI Scale"));
                 });
 
                 ui.menu_button("Encryption", |ui| {
                     if ui.button("Encrypt File").clicked() {
-                        if let Some(path) = Self::open_file_dialogue() {
+                        if let Some(path) = Self::open_file_dialog() {
                             self.events.push(Event::Encrypt(path.display().to_string()));
                         }
                     }
                     if ui.button("Decrypt File").clicked() {
-                        if let Some(path) = Self::open_file_dialogue() {
+                        if let Some(path) = Self::open_file_dialog() {
                             self.events.push(Event::Decrypt(path.display().to_string()));
                         }
                     }
@@ -148,6 +190,21 @@ impl eframe::App for Gui {
                 // });
             });
             // Top Bar End
+
+            if let Some(timer) = &self.error_timer {
+                if timer.is_complete() {
+                    self.error_timer = None;
+                } else {
+                    ui.separator();
+
+                    ui.horizontal(|ui| {
+                        ui.horizontal(|ui| {
+                            ui.heading("Error");
+                            ui.label(self.error_msg.as_str());
+                        });
+                    });
+                }
+            }
 
             if self.events.len() != 0 {
                 self.password_mode = true;
@@ -166,10 +223,10 @@ impl eframe::App for Gui {
 
             ui.separator();
 
-            if let Some(vault_name) = &mut self.vault_name {
+            if let Some(vault) = &mut self.vault {
                 ui.horizontal(|ui| {
                     ui.heading("Vault");
-                    ui.text_edit_singleline(vault_name);
+                    ui.text_edit_singleline(&mut vault.name);
                 });
 
                 ui.separator();
