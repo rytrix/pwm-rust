@@ -49,6 +49,7 @@ struct Gui {
     vault: Option<Vault>,
 
     events: Vec<Event>,
+    password_events: Vec<Event>,
 }
 
 impl Default for Gui {
@@ -60,12 +61,17 @@ impl Default for Gui {
             error_msg: String::new(),
             error_timer: None,
 
+            // Need some sort of password event stack. 
+            // Takes password then performs the task, maybe some sort of lambda
+            // Event -> Requires password -> Pass lambda to password stack
+            // password stack dictates password mode
             password_mode: false,
             password_buffer: String::new(),
 
             vault: None,
 
             events: Vec::new(),
+            password_events: Vec::new(),
         }
     }
 }
