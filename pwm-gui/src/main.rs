@@ -1,16 +1,26 @@
 mod password;
+mod state;
 mod timer;
 mod vault;
 
+use state::State;
 use timer::Timer;
 
-use std::{path::PathBuf, time::Duration};
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use eframe::egui;
-use pwm_lib::{aes_wrapper::AesResult, crypt_file::{decrypt_file, encrypt_file}};
+use pwm_lib::{
+    aes_wrapper::AesResult,
+    crypt_file::{decrypt_file, encrypt_file},
+};
 use vault::Vault;
 
-fn main() -> Result<(), eframe::Error> {
+#[tokio::main]
+async fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([800.0, 600.0]),
@@ -38,46 +48,26 @@ enum Event {
 
 struct Gui {
     scale: f32,
-    prev_file: Option<String>,
 
-    error_msg: String,
-    error_timer: Option<Timer>,
-
-    password_mode: bool,
-    password_buffer: String,
-
-    vault: Option<Vault>,
-
-    events: Vec<Event>,
-    password_events: Vec<Event>,
+    state: Arc<State>,
 }
 
 impl Default for Gui {
     fn default() -> Self {
         Self {
             scale: 1.8,
-            prev_file: Some(String::new()),
 
-            error_msg: String::new(),
-            error_timer: None,
-
-            // Need some sort of password event stack. 
+            // Need some sort of password event stack.
             // Takes password then performs the task, maybe some sort of lambda
             // Event -> Requires password -> Pass lambda to password stack
             // password stack dictates password mode
-            password_mode: false,
-            password_buffer: String::new(),
-
-            vault: None,
-
-            events: Vec::new(),
-            password_events: Vec::new(),
+            state: Arc::new(State::default()),
         }
     }
 }
 
 impl Gui {
-    fn open_file_dialog() -> Option<PathBuf> {
+    fn open_file_dialog(state: Arc<State>) -> Option<PathBuf> {
         let mut dialog = rfd::FileDialog::new();
 
         match std::env::current_dir() {
@@ -90,42 +80,62 @@ impl Gui {
             }
         };
 
-        return dialog.pick_file();
+        let file = dialog.pick_file();
+        if let Some(file) = &file {
+            // TODO how the hell do I handle error lol
+            *state.prev_file.lock().unwrap() = Some(file.display().to_string());
+        }
         // eprintln!("Selected file {}", path.display().to_string());
+        file
     }
 
-    fn enable_error_mode(&mut self, msg: String) {
-        self.error_msg = msg;
-        self.error_timer = Some(Timer::new(Duration::from_secs(8)));
+    async fn file_open(state: Arc<State>) {
+        if let Some(path) = Self::open_file_dialog(state) {
+            println!("{}", path.display().to_string());
+        }
     }
 
-    fn handle_event(&mut self) {
-        let event = self.events.pop();
-        if let Some(event) = event {
-            match event {
-                Event::Encrypt(file) => {
-                    match encrypt_file(file, None, self.password_buffer.as_bytes()) {
-                        Ok(()) => (),
-                        Err(error) => {
-                            self.enable_error_mode(error.to_string());
-                        }
-                    };
+    fn crypt_prelude(state: Arc<State>) -> Option<(String, String)> {
+        let file = Self::open_file_dialog(state.clone());
+        if let Some(file) = file {
+            let file = file.display().to_string();
+
+            let receiver =
+                State::add_password_prompt(state.clone(), format!("Enter password for {}", file));
+
+            let password = receiver.recv().unwrap();
+
+            return Some((file, password));
+        }
+
+        None
+    }
+
+    async fn encrypt_file(state: Arc<State>) {
+        if let Some((file, password)) = Self::crypt_prelude(state.clone()) {
+            match encrypt_file(file, None, password.as_bytes()) {
+                Ok(()) => (),
+                Err(error) => {
+                    State::add_error(state, (error.to_string(), Timer::default()));
                 }
-                Event::Decrypt(file) => {
-                    match decrypt_file(file, None, self.password_buffer.as_bytes()) {
-                        Ok(()) => (),
-                        Err(_error) => {
-                            self.enable_error_mode(String::from("Failed to decrypt file"));
-                        }
-                    };
+            };
+        }
+    }
+
+    async fn decrypt_file(state: Arc<State>) {
+        if let Some((file, password)) = Self::crypt_prelude(state.clone()) {
+            match decrypt_file(file, None, password.as_bytes()) {
+                Ok(()) => (),
+                Err(_error) => {
+                    State::add_error(
+                        state,
+                        (
+                            String::from("Failed to decrypt file, invalid password"),
+                            Timer::default(),
+                        ),
+                    );
                 }
-                Event::Error(error) => {
-                    self.enable_error_mode(error);
-                }
-                _ => {
-                    eprintln!("NYI");
-                }
-            }
+            };
         }
     }
 }
@@ -146,26 +156,27 @@ impl eframe::App for Gui {
             ui.horizontal(|ui| {
                 ui.menu_button("File", |ui| {
                     if ui.button("Create").clicked() {
-                        self.events.push(Event::Create);
+                        let state = self.state.clone();
+                        tokio::spawn(async {
+                            State::add_error(state, (String::from("testing"), Timer::default()));
+                        });
                     }
                     if ui.button("Open").clicked() {
-                        if let Some(path) = Self::open_file_dialog() {
-                            self.events.push(Event::Open(path.display().to_string()));
-                        }
+                        tokio::spawn(Self::file_open(self.state.clone()));
                     }
                     if ui.button("Save").clicked() {
-                        if let Some(prev_file) = &self.prev_file {
-                            self.events.push(Event::Save(prev_file.clone()));
-                        } else {
-                            if let Some(path) = Self::open_file_dialog() {
-                                self.events.push(Event::SaveAs(path.display().to_string()));
-                            }
-                        }
+                        // if let Some(prev_file) = &self.prev_file {
+                        //     self.events.push(Event::Save(prev_file.clone()));
+                        // } else {
+                        //     if let Some(path) = Self::open_file_dialog() {
+                        //         self.events.push(Event::SaveAs(path.display().to_string()));
+                        //     }
+                        // }
                     }
                     if ui.button("Save As").clicked() {
-                        if let Some(path) = Self::open_file_dialog() {
-                            self.events.push(Event::SaveAs(path.display().to_string()));
-                        }
+                        // if let Some(path) = Self::open_file_dialog() {
+                        //     self.events.push(Event::SaveAs(path.display().to_string()));
+                        // }
                     }
                 });
 
@@ -175,110 +186,60 @@ impl eframe::App for Gui {
 
                 ui.menu_button("Encryption", |ui| {
                     if ui.button("Encrypt File").clicked() {
-                        if let Some(path) = Self::open_file_dialog() {
-                            self.events.push(Event::Encrypt(path.display().to_string()));
-                        }
+                        tokio::spawn(Self::encrypt_file(self.state.clone()));
                     }
                     if ui.button("Decrypt File").clicked() {
-                        if let Some(path) = Self::open_file_dialog() {
-                            self.events.push(Event::Decrypt(path.display().to_string()));
-                        }
+                        tokio::spawn(Self::decrypt_file(self.state.clone()));
                     }
                 });
-
-                // if ui.button("Password").clicked() {
-                //     self.password_mode = true;
-                // }
-                // ui.menu_button("Password", |ui| {
-                //     ui.horizontal(|ui| {
-                //         ui.add(self.password());
-                //     });
-                // });
             });
             // Top Bar End
 
-            if let Some(timer) = &self.error_timer {
-                if timer.is_complete() {
-                    self.error_timer = None;
-                } else {
-                    ui.separator();
+            State::display_password_prompts(self.state.clone(), ui);
 
-                    ui.horizontal(|ui| {
-                        ui.horizontal(|ui| {
-                            ui.heading("Error");
-                            ui.label(self.error_msg.as_str());
+            State::display_errors(self.state.clone(), ui);
+
+            ui.collapsing("Vault", |ui| {
+                let table = TableBuilder::new(ui)
+                    .striped(true)
+                    .resizable(true)
+                    .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+                    .column(Column::auto())
+                    .column(Column::auto())
+                    .column(Column::auto())
+                    .min_scrolled_height(0.0);
+
+                table
+                    .header(20.0, |mut header| {
+                        header.col(|ui| {
+                            ui.strong("Row");
                         });
-                    });
-                }
-            }
-
-            if self.events.len() != 0 {
-                self.password_mode = true;
-            }
-
-            if self.password_mode {
-                ui.separator();
-
-                ui.horizontal(|ui| {
-                    ui.horizontal(|ui| {
-                        ui.label("Enter password");
-                        ui.add(self.password());
-                    });
-                });
-            }
-
-            ui.separator();
-
-            if let Some(vault) = &mut self.vault {
-                ui.horizontal(|ui| {
-                    ui.heading("Vault");
-                    ui.text_edit_singleline(&mut vault.name);
-                });
-
-                ui.separator();
-            }
-
-            // ui.collapsing("Vault", |ui| {
-            let table = TableBuilder::new(ui)
-                .striped(true)
-                .resizable(true)
-                .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                .column(Column::auto())
-                .column(Column::auto())
-                .column(Column::auto())
-                .min_scrolled_height(0.0);
-
-            table
-                .header(20.0, |mut header| {
-                    header.col(|ui| {
-                        ui.strong("Row");
-                    });
-                    header.col(|ui| {
-                        ui.strong("Key");
-                    });
-                    header.col(|ui| {
-                        ui.strong("Data");
-                    });
-                })
-                .body(|mut body| {
-                    for row_index in 0..50 {
-                        let row_height = 30.0;
-                        body.row(row_height, |mut row| {
-                            row.col(|ui| {
-                                ui.label(row_index.to_string());
-                            });
-                            row.col(|ui| {
-                                ui.label("Names can be found here");
-                            });
-                            row.col(|ui| {
-                                // ui.checkbox(true, "Click me");
-                                ui.button("Get data").clicked();
-                                ui.add_space(8.0);
-                            });
+                        header.col(|ui| {
+                            ui.strong("Key");
                         });
-                    }
-                })
+                        header.col(|ui| {
+                            ui.strong("Data");
+                        });
+                    })
+                    .body(|mut body| {
+                        for row_index in 0..50 {
+                            let row_height = 30.0;
+                            body.row(row_height, |mut row| {
+                                row.col(|ui| {
+                                    ui.label(row_index.to_string());
+                                });
+                                row.col(|ui| {
+                                    ui.label("Names can be found here");
+                                });
+                                row.col(|ui| {
+                                    // ui.checkbox(true, "Click me");
+                                    ui.button("Get data").clicked();
+                                    ui.add_space(8.0);
+                                });
+                            });
+                        }
+                    })
+            });
         });
-        // });
     }
 }

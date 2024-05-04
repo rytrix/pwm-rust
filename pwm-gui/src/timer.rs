@@ -6,6 +6,15 @@ pub struct Timer {
     duration: Duration,
 }
 
+impl Default for Timer {
+    fn default() -> Timer {
+        Timer {
+            start_time: Instant::now(),
+            duration: Duration::from_secs(5),
+        }
+    }
+}
+
 impl Timer {
     pub fn new(duration: Duration) -> Timer {
         Timer {
