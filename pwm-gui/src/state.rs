@@ -1,6 +1,7 @@
 use eframe::egui::Ui;
 
 use crate::password::password_ui;
+use crate::GuiError;
 use crate::Timer;
 use crate::Vault;
 
@@ -28,23 +29,32 @@ impl Default for State {
 }
 
 impl State {
-    pub fn add_password_prompt(state: Arc<State>, prompt: String) -> Receiver<String> {
+    pub fn add_password_prompt(
+        state: Arc<State>,
+        prompt: String,
+    ) -> Result<Receiver<String>, GuiError> {
         let (sender, receiver) = channel();
 
-        let mut vec = state.password.lock().unwrap();
+        let mut vec = match state.password.lock() {
+            Ok(vec) => vec,
+            Err(error) => return Err(GuiError::LockFail(error.to_string())),
+        };
         vec.push((prompt, String::new(), sender));
 
-        return receiver;
+        return Ok(receiver);
     }
 
-    pub fn display_password_prompts(state: Arc<State>, ui: &mut Ui) {
-        let mut passwords = state.password.lock().unwrap();
+    pub fn display_password_prompts(state: Arc<State>, ui: &mut Ui) -> Result<(), GuiError> {
+        let mut passwords = match state.password.lock() {
+            Ok(passwords) => passwords,
+            Err(error) => return Err(GuiError::LockFail(error.to_string())),
+        };
 
         let mut count = 0;
         let mut remove_list = Vec::<usize>::new();
 
         if passwords.len() <= 0 {
-            return;
+            return Ok(());
         }
 
         ui.separator();
@@ -71,21 +81,31 @@ impl State {
         for i in remove_list {
             passwords.remove(i);
         }
+
+        Ok(())
     }
 
-    pub fn add_error(state: Arc<State>, error: (String, Timer)) {
-        let mut errors = state.errors.lock().unwrap();
+    pub fn add_error(state: Arc<State>, error: (String, Timer)) -> Result<(), GuiError> {
+        let mut errors = match state.errors.lock() {
+            Ok(errors) => errors,
+            Err(error) => return Err(GuiError::LockFail(error.to_string()))
+        };
         errors.push(error);
+
+        Ok(())
     }
 
-    pub fn display_errors(state: Arc<State>, ui: &mut Ui) {
-        let mut errors = state.errors.lock().unwrap();
+    pub fn display_errors(state: Arc<State>, ui: &mut Ui) -> Result<(), GuiError> {
+        let mut errors = match state.errors.lock() {
+            Ok(errors) => errors,
+            Err(error) => return Err(GuiError::LockFail(error.to_string()))
+        };
 
         let mut count = 0;
         let mut remove_list = Vec::<usize>::new();
 
         if errors.len() <= 0 {
-            return;
+            return Ok(());
         }
 
         ui.separator();
@@ -112,5 +132,7 @@ impl State {
         for i in remove_list {
             errors.remove(i);
         }
+
+        Ok(())
     }
 }
