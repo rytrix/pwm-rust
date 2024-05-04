@@ -1,6 +1,7 @@
 use eframe::egui::Ui;
 
 use crate::password::password_ui;
+use crate::Gui;
 use crate::GuiError;
 use crate::Timer;
 use crate::Vault;
@@ -29,6 +30,54 @@ impl Default for State {
 }
 
 impl State {
+    pub async fn create_vault(state: Arc<State>) -> Result<(), GuiError> {
+        let receiver =
+            Self::add_password_prompt(state.clone(), String::from("New vault password"))?;
+        let password = match receiver.recv() {
+            Ok(password) => password,
+            Err(error) => return Err(GuiError::RecvFail(error.to_string())),
+        };
+
+        let mut vault = match state.vault.lock() {
+            Ok(vault) => vault,
+            Err(error) => return Err(GuiError::LockFail(error.to_string())),
+        };
+
+        *vault = match Vault::new("New Vault", password.as_bytes()) {
+            Ok(vault) => Some(vault),
+            Err(error) => return Err(GuiError::DatabaseError(error.to_string())),
+        };
+
+        Ok(())
+    }
+
+    pub async fn open_vault_from_file(state: Arc<State>) -> Result<(), GuiError> {
+        let file = match Gui::open_file_dialog(state.clone()) {
+            Some(file) => file.display().to_string(),
+            None => return Err(GuiError::NoFile),
+        };
+
+        let receiver =
+            Self::add_password_prompt(state.clone(), String::from("New vault password"))?;
+
+        let password = match receiver.recv() {
+            Ok(password) => password,
+            Err(error) => return Err(GuiError::RecvFail(error.to_string())),
+        };
+
+        let mut vault = match state.vault.lock() {
+            Ok(vault) => vault,
+            Err(error) => return Err(GuiError::LockFail(error.to_string())),
+        };
+
+        *vault = match Vault::new_from_file(file.as_str(), password.as_bytes()) {
+            Ok(vault) => Some(vault),
+            Err(error) => return Err(GuiError::DatabaseError(error.to_string())),
+        };
+
+        Ok(())
+    }
+
     pub fn add_password_prompt(
         state: Arc<State>,
         prompt: String,
@@ -88,7 +137,7 @@ impl State {
     pub fn add_error(state: Arc<State>, error: (String, Timer)) -> Result<(), GuiError> {
         let mut errors = match state.errors.lock() {
             Ok(errors) => errors,
-            Err(error) => return Err(GuiError::LockFail(error.to_string()))
+            Err(error) => return Err(GuiError::LockFail(error.to_string())),
         };
         errors.push(error);
 
@@ -98,7 +147,7 @@ impl State {
     pub fn display_errors(state: Arc<State>, ui: &mut Ui) -> Result<(), GuiError> {
         let mut errors = match state.errors.lock() {
             Ok(errors) => errors,
-            Err(error) => return Err(GuiError::LockFail(error.to_string()))
+            Err(error) => return Err(GuiError::LockFail(error.to_string())),
         };
 
         let mut count = 0;

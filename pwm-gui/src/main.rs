@@ -7,15 +7,11 @@ use state::State;
 use timer::Timer;
 
 use std::{
-    path::PathBuf,
-    sync::{Arc, Mutex},
+    path::PathBuf, sync::Arc
 };
 
 use eframe::egui;
-use pwm_lib::{
-    aes_wrapper::AesResult,
-    crypt_file::{decrypt_file, encrypt_file},
-};
+use pwm_lib::crypt_file::{decrypt_file, encrypt_file};
 use vault::Vault;
 
 #[tokio::main]
@@ -31,12 +27,18 @@ async fn main() -> Result<(), eframe::Error> {
 #[derive(Debug)]
 enum GuiError {
     LockFail(String),
+    RecvFail(String),
+    DatabaseError(String),
+    NoFile,
 }
 
 impl std::fmt::Display for GuiError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         return match self {
             Self::LockFail(msg) => f.write_fmt(std::format_args!("Failed to lock: {}", msg)),
+            Self::RecvFail(msg) => f.write_fmt(std::format_args!("Failed to recv: {}", msg)),
+            Self::DatabaseError(msg) => f.write_fmt(std::format_args!("Vault error: {}", msg)),
+            Self::NoFile => f.write_str("No file selected"),
         };
     }
 }
@@ -89,13 +91,29 @@ impl Gui {
         file
     }
 
+    async fn file_new(state: Arc<State>) {
+        println!("New vault");
+    }
+
     async fn file_open(state: Arc<State>) {
         if let Some(path) = Self::open_file_dialog(state) {
             println!("{}", path.display().to_string());
         }
     }
 
-    fn crypt_prelude(state: Arc<State>) -> Option<(String, String)> {
+    async fn file_save(state: Arc<State>) {
+        if let Some(path) = Self::open_file_dialog(state) {
+            println!("{}", path.display().to_string());
+        }
+    }
+
+    async fn file_save_as(state: Arc<State>) {
+        if let Some(path) = Self::open_file_dialog(state) {
+            println!("{}", path.display().to_string());
+        }
+    }
+
+    async fn crypt_prelude(state: Arc<State>) -> Option<(String, String)> {
         let file = Self::open_file_dialog(state.clone());
         if let Some(file) = file {
             let file = file.display().to_string();
@@ -117,7 +135,7 @@ impl Gui {
     }
 
     async fn encrypt_file(state: Arc<State>) {
-        if let Some((file, password)) = Self::crypt_prelude(state.clone()) {
+        if let Some((file, password)) = Self::crypt_prelude(state.clone()).await {
             match encrypt_file(file, None, password.as_bytes()) {
                 Ok(()) => (),
                 Err(error) => {
@@ -128,7 +146,7 @@ impl Gui {
     }
 
     async fn decrypt_file(state: Arc<State>) {
-        if let Some((file, password)) = Self::crypt_prelude(state.clone()) {
+        if let Some((file, password)) = Self::crypt_prelude(state.clone()).await {
             match decrypt_file(file, None, password.as_bytes()) {
                 Ok(()) => (),
                 Err(_error) => {
@@ -161,16 +179,17 @@ impl eframe::App for Gui {
             ui.horizontal(|ui| {
                 ui.menu_button("File", |ui| {
                     if ui.button("Create").clicked() {
-                        let state = self.state.clone();
-                        tokio::spawn(async {
-                            let _ = State::add_error(state, (String::from("testing"), Timer::default()));
-                        });
+                        tokio::spawn(Self::file_new(self.state.clone()));
                     }
                     if ui.button("Open").clicked() {
                         tokio::spawn(Self::file_open(self.state.clone()));
                     }
-                    if ui.button("Save").clicked() {}
-                    if ui.button("Save As").clicked() {}
+                    if ui.button("Save").clicked() {
+                        tokio::spawn(Self::file_save(self.state.clone()));
+                    }
+                    if ui.button("Save As").clicked() {
+                        tokio::spawn(Self::file_save_as(self.state.clone()));
+                    }
                 });
 
                 ui.menu_button("Options", |ui| {
