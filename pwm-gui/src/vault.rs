@@ -1,15 +1,8 @@
-use pwm_db::{
-    db_base::DatabaseError,
-    db_encrypted::{keep_hash::DatabaseInterface, DatabaseEncrypted},
-};
-use pwm_lib::{
-    aes_wrapper::AesResult,
-    hash::{argon2_wrapper::argon2_hash_password, HashResult},
-};
+use pwm_db::{db_base::DatabaseError, db_encrypted::{DatabaseEncrypted, forget_hash::DatabaseInterface}};
+use pwm_lib::aes_wrapper::AesResult;
 
 pub struct Vault {
     db: DatabaseEncrypted,
-    hash: HashResult,
     changed: bool,
     pub name: String,
 }
@@ -17,13 +10,12 @@ pub struct Vault {
 impl Vault {
     pub fn new(name: &str, password: &[u8]) -> Result<Self, DatabaseError> {
         let db = DatabaseEncrypted::new(password)?;
-        let hash = match argon2_hash_password(password) {
-            Ok(value) => value,
-            Err(error) => return Err(DatabaseError::FailedHash(error.to_string())),
-        };
+        // let hash = match argon2_hash_password(password) {
+        //     Ok(value) => value,
+        //     Err(error) => return Err(DatabaseError::FailedHash(error.to_string())),
+        // };
         Ok(Self {
             db,
-            hash,
             changed: true,
             name: String::from(name),
         })
@@ -38,30 +30,33 @@ impl Vault {
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
 
-        let (db, hash) = DatabaseEncrypted::new_deserialize_encrypted(&contents, password)?;
+        let db = DatabaseEncrypted::new_deserialize_encrypted(&contents, password)?;
 
         Ok(Self {
             db,
-            hash,
             changed: false,
             name: String::from(file),
         })
     }
 
-    pub fn insert(&mut self, name: &String, data: &[u8]) -> Result<(), DatabaseError> {
-        self.db.insert(name, data, &self.hash)
+    pub fn insert(&mut self, name: &String, data: &[u8], password: &[u8]) -> Result<(), DatabaseError> {
+        self.db.insert(name, data, password)
     }
 
-    pub fn remove(&mut self, name: &String) -> Result<(), DatabaseError> {
-        self.db.remove(name, &self.hash)
+    pub fn remove(&mut self, name: &String, password: &[u8]) -> Result<(), DatabaseError> {
+        self.db.remove(name, password)
     }
 
-    pub fn get(&self, name: &String) -> Result<AesResult, DatabaseError> {
-        self.db.get(name, &self.hash)
+    pub fn get(&self, name: &String, password: &[u8]) -> Result<AesResult, DatabaseError> {
+        self.db.get(name, password)
     }
 
-    pub fn serialize_to_file(&self, file: &str) -> Result<(), DatabaseError> {
-        let ciphertext = self.db.serialize_encrypted(&self.hash)?;
+    pub fn list(&self) -> Result<Vec<String>, DatabaseError> {
+        self.db.list()
+    }
+
+    pub fn serialize_to_file(&self, file: &str, password: &[u8]) -> Result<(), DatabaseError> {
+        let ciphertext = self.db.serialize_encrypted(password)?;
         match std::fs::write(file, ciphertext.as_ref()) {
             Ok(()) => (),
             Err(error) => return Err(DatabaseError::OutputError(error.to_string())),

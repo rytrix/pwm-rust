@@ -1,4 +1,6 @@
+use crate::egui;
 use eframe::egui::Ui;
+use egui_extras::{Column, TableBuilder};
 
 use crate::password::password_ui;
 use crate::Gui;
@@ -74,6 +76,96 @@ impl State {
             Ok(vault) => Some(vault),
             Err(error) => return Err(GuiError::DatabaseError(error.to_string())),
         };
+
+        Ok(())
+    }
+
+    pub async fn save_vault_to_file(state: Arc<State>, path: &str) -> Result<(), GuiError> {
+        let receiver =
+            Self::add_password_prompt(state.clone(), String::from("Save vault password"))?;
+
+        let password = match receiver.recv() {
+            Ok(password) => password,
+            Err(error) => return Err(GuiError::RecvFail(error.to_string())),
+        };
+
+        let vault = match state.vault.lock() {
+            Ok(vault) => vault,
+            Err(error) => return Err(GuiError::LockFail(error.to_string())),
+        };
+
+        let vault = match &*vault {
+            Some(vault) => vault,
+            None => return Err(GuiError::NoVault),
+        };
+
+        match vault.serialize_to_file(&path, password.as_bytes()) {
+            Ok(()) => {}
+            Err(error) => return Err(GuiError::DatabaseError(error.to_string())),
+        };
+
+        Ok(())
+    }
+
+    pub fn display_vault(state: Arc<State>, ui: &mut Ui) -> Result<(), GuiError> {
+        let list: Vec<String>;
+
+        let vault = match state.vault.lock() {
+            Ok(vault) => vault,
+            Err(error) => return Err(GuiError::LockFail(error.to_string())),
+        };
+
+        let vault = match &*vault {
+            Some(vault) => vault,
+            None => return Err(GuiError::NoVault),
+        };
+
+        list = match vault.list() {
+            Ok(list) => list,
+            Err(error) => return Err(GuiError::DatabaseError(error.to_string())),
+        };
+
+        ui.collapsing(vault.name.as_str(), |ui| {
+            let builder = TableBuilder::new(ui)
+                .striped(true)
+                .resizable(true)
+                .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+                .column(Column::auto())
+                .column(Column::auto())
+                .column(Column::auto())
+                .min_scrolled_height(0.0);
+
+            builder
+                .header(20.0, |mut header| {
+                    header.col(|ui| {
+                        ui.strong("Row");
+                    });
+                    header.col(|ui| {
+                        ui.strong("Key");
+                    });
+                    header.col(|ui| {
+                        ui.strong("Data");
+                    });
+                })
+                .body(|mut body| {
+                    for row_index in 0..list.len() {
+                        let row_height = 30.0;
+                        body.row(row_height, |mut row| {
+                            row.col(|ui| {
+                                ui.label(row_index.to_string());
+                            });
+                            row.col(|ui| {
+                                ui.label(format!("name: {}", list[row_index]));
+                            });
+                            row.col(|ui| {
+                                // ui.checkbox(true, "Click me");
+                                ui.button("Get data").clicked();
+                                ui.add_space(8.0);
+                            });
+                        });
+                    }
+                });
+        });
 
         Ok(())
     }
