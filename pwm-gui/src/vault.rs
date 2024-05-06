@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use pwm_db::{
     db_base::DatabaseError,
     db_encrypted::{forget_hash::DatabaseInterface, DatabaseEncrypted},
@@ -33,10 +35,20 @@ impl Vault {
 
         let db = DatabaseEncrypted::new_deserialize_encrypted(&contents, password)?;
 
+        let path = Path::new(file);
+
+        let name = match path.file_name() {
+            Some(name) => match name.to_str() {
+                Some(name) => name,
+                None => file,
+            },
+            None => file,
+        };
+
         Ok(Self {
             db,
             changed: false,
-            name_buffer: String::from(file),
+            name_buffer: String::from(name),
             insert_buffer: String::new(),
         })
     }
