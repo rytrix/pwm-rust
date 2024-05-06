@@ -35,16 +35,9 @@ impl State {
     pub async fn create_vault(state: Arc<State>) -> Result<(), GuiError> {
         let receiver =
             Self::add_password_prompt(state.clone(), String::from("New vault password"))?;
-        let password = match receiver.recv() {
-            Ok(password) => password,
-            Err(error) => return Err(GuiError::RecvFail(error.to_string())),
-        };
+        let password = receiver.recv()?;
 
-        let mut vault = match state.vault.lock() {
-            Ok(vault) => vault,
-            Err(error) => return Err(GuiError::LockFail(error.to_string())),
-        };
-
+        let mut vault = state.vault.lock()?;
         *vault = match Vault::new("New Vault", password.as_bytes()) {
             Ok(vault) => Some(vault),
             Err(error) => return Err(GuiError::DatabaseError(error.to_string())),
@@ -61,17 +54,9 @@ impl State {
 
         let receiver =
             Self::add_password_prompt(state.clone(), String::from("New vault password"))?;
+        let password = receiver.recv()?;
 
-        let password = match receiver.recv() {
-            Ok(password) => password,
-            Err(error) => return Err(GuiError::RecvFail(error.to_string())),
-        };
-
-        let mut vault = match state.vault.lock() {
-            Ok(vault) => vault,
-            Err(error) => return Err(GuiError::LockFail(error.to_string())),
-        };
-
+        let mut vault = state.vault.lock()?;
         *vault = match Vault::new_from_file(file.as_str(), password.as_bytes()) {
             Ok(vault) => Some(vault),
             Err(error) => return Err(GuiError::DatabaseError(error.to_string())),
@@ -84,26 +69,14 @@ impl State {
         let receiver =
             Self::add_password_prompt(state.clone(), String::from("Save vault password"))?;
 
-        let password = match receiver.recv() {
-            Ok(password) => password,
-            Err(error) => return Err(GuiError::RecvFail(error.to_string())),
-        };
-
-        let vault = match state.vault.lock() {
-            Ok(vault) => vault,
-            Err(error) => return Err(GuiError::LockFail(error.to_string())),
-        };
-
+        let password = receiver.recv()?;
+        let vault = state.vault.lock()?;
         let vault = match &*vault {
             Some(vault) => vault,
             None => return Err(GuiError::NoVault),
         };
 
-        match vault.serialize_to_file(&path, password.as_bytes()) {
-            Ok(()) => {}
-            Err(error) => return Err(GuiError::DatabaseError(error.to_string())),
-        };
-
+        vault.serialize_to_file(&path, password.as_bytes())?;
         Ok(())
     }
 
@@ -111,21 +84,13 @@ impl State {
         let list: Vec<String>;
         let name: String;
 
-        let mut vault = match state.vault.lock() {
-            Ok(vault) => vault,
-            Err(error) => return Err(GuiError::LockFail(error.to_string())),
-        };
-
+        let mut vault = state.vault.lock()?;
         let vault = match &mut *vault {
             Some(vault) => vault,
             None => return Ok(()),
         };
 
-        list = match vault.list() {
-            Ok(list) => list,
-            Err(error) => return Err(GuiError::DatabaseError(error.to_string())),
-        };
-
+        list = vault.list()?;
         name = vault.name_buffer.clone();
 
         ui.collapsing(name, |ui| {
@@ -191,87 +156,49 @@ impl State {
         let receiver =
             Self::add_password_prompt(state.clone(), format!("Enter password for {}", name))?;
 
-        let password = match receiver.recv() {
-            Ok(password) => password,
-            Err(error) => return Err(GuiError::RecvFail(error.to_string())),
-        };
-
+        let password = receiver.recv()?;
         let receiver =
             Self::add_password_prompt(state.clone(), format!("Enter entry for {}", name))?;
 
-        let data = match receiver.recv() {
-            Ok(password) => password,
-            Err(error) => return Err(GuiError::RecvFail(error.to_string())),
-        };
+        let data = receiver.recv()?;
 
-        let mut vault = match state.vault.lock() {
-            Ok(vault) => vault,
-            Err(error) => return Err(GuiError::LockFail(error.to_string())),
-        };
-
+        let mut vault = state.vault.lock()?;
         let vault = match &mut *vault {
             Some(vault) => vault,
             None => return Err(GuiError::NoVault),
         };
 
-        match vault.insert(&name, data.as_bytes(), password.as_bytes()) {
-            Ok(()) => (),
-            Err(error) => return Err(GuiError::DatabaseError(error.to_string())),
-        };
-
+        vault.insert(&name, data.as_bytes(), password.as_bytes())?;
         Ok(())
     }
 
     pub async fn remove(state: Arc<State>, name: String) -> Result<(), GuiError> {
         let receiver =
             Self::add_password_prompt(state.clone(), format!("Enter password for {}", name))?;
+        let password = receiver.recv()?;
 
-        let password = match receiver.recv() {
-            Ok(password) => password,
-            Err(error) => return Err(GuiError::RecvFail(error.to_string())),
-        };
-
-        let mut vault = match state.vault.lock() {
-            Ok(vault) => vault,
-            Err(error) => return Err(GuiError::LockFail(error.to_string())),
-        };
-
+        let mut vault = state.vault.lock()?;
         let vault = match &mut *vault {
             Some(vault) => vault,
             None => return Err(GuiError::NoVault),
         };
 
-        match vault.remove(&name, password.as_bytes()) {
-            Ok(()) => (),
-            Err(error) => return Err(GuiError::DatabaseError(error.to_string())),
-        };
-
+        vault.remove(&name, password.as_bytes())?;
         Ok(())
     }
 
     pub async fn get(state: Arc<State>, name: String) -> Result<(), GuiError> {
         let receiver =
             Self::add_password_prompt(state.clone(), format!("Enter password for {}", name))?;
+        let password = receiver.recv()?;
 
-        let password = match receiver.recv() {
-            Ok(password) => password,
-            Err(error) => return Err(GuiError::RecvFail(error.to_string())),
-        };
-
-        let vault = match state.vault.lock() {
-            Ok(vault) => vault,
-            Err(error) => return Err(GuiError::LockFail(error.to_string())),
-        };
-
+        let vault = state.vault.lock()?;
         let vault = match &*vault {
             Some(vault) => vault,
             None => return Err(GuiError::NoVault),
         };
 
-        let result = match vault.get(&name, password.as_bytes()) {
-            Ok(result) => result,
-            Err(error) => return Err(GuiError::DatabaseError(error.to_string())),
-        };
+        let result = vault.get(&name, password.as_bytes())?;
 
         use std::str;
         let result = match str::from_utf8(result.as_ref()) {
@@ -291,21 +218,14 @@ impl State {
     ) -> Result<Receiver<String>, GuiError> {
         let (sender, receiver) = channel();
 
-        let mut vec = match state.password.lock() {
-            Ok(vec) => vec,
-            Err(error) => return Err(GuiError::LockFail(error.to_string())),
-        };
+        let mut vec = state.password.lock()?;
         vec.push((prompt, String::new(), sender));
 
         return Ok(receiver);
     }
 
     pub fn display_password_prompts(state: Arc<State>, ui: &mut Ui) -> Result<(), GuiError> {
-        let mut passwords = match state.password.lock() {
-            Ok(passwords) => passwords,
-            Err(error) => return Err(GuiError::LockFail(error.to_string())),
-        };
-
+        let mut passwords = state.password.lock()?;
         let mut count = 0;
         let mut remove_list = Vec::<usize>::new();
 
@@ -342,21 +262,14 @@ impl State {
     }
 
     pub fn add_error(state: Arc<State>, error: (String, Timer)) -> Result<(), GuiError> {
-        let mut errors = match state.errors.lock() {
-            Ok(errors) => errors,
-            Err(error) => return Err(GuiError::LockFail(error.to_string())),
-        };
+        let mut errors = state.errors.lock()?;
         errors.push(error);
 
         Ok(())
     }
 
     pub fn display_errors(state: Arc<State>, ui: &mut Ui) -> Result<(), GuiError> {
-        let mut errors = match state.errors.lock() {
-            Ok(errors) => errors,
-            Err(error) => return Err(GuiError::LockFail(error.to_string())),
-        };
-
+        let mut errors = state.errors.lock()?;
         let mut count = 0;
         let mut remove_list = Vec::<usize>::new();
 

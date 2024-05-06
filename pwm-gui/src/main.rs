@@ -3,10 +3,14 @@ mod state;
 mod timer;
 mod vault;
 
+use pwm_db::db_base::DatabaseError;
 use state::State;
 use timer::Timer;
 
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    path::PathBuf,
+    sync::{mpsc::RecvError, Arc, PoisonError},
+};
 
 use eframe::egui;
 
@@ -57,6 +61,24 @@ impl std::fmt::Display for GuiError {
 }
 
 impl std::error::Error for GuiError {}
+
+impl<T> From<PoisonError<T>> for GuiError {
+    fn from(value: PoisonError<T>) -> Self {
+        Self::LockFail(value.to_string())
+    }
+}
+
+impl From<DatabaseError> for GuiError {
+    fn from(value: DatabaseError) -> Self {
+        Self::DatabaseError(value.to_string())
+    }
+}
+
+impl From<RecvError> for GuiError {
+    fn from(value: RecvError) -> Self {
+        Self::RecvFail(value.to_string())
+    }
+}
 
 struct Gui {
     scale: f32,
@@ -114,18 +136,15 @@ impl eframe::App for Gui {
             });
             // Top Bar End
 
-            let error = State::display_password_prompts(self.state.clone(), ui);
-            if let Err(error) = error {
+            if let Err(error) = State::display_password_prompts(self.state.clone(), ui) {
                 GuiError::display_error_or_print(self.state.clone(), error.to_string());
             }
 
-            let error = State::display_errors(self.state.clone(), ui);
-            if let Err(error) = error {
+            if let Err(error) = State::display_errors(self.state.clone(), ui) {
                 GuiError::display_error_or_print(self.state.clone(), error.to_string());
             }
 
-            let error = State::display_vault(self.state.clone(), ui);
-            if let Err(error) = error {
+            if let Err(error) = State::display_vault(self.state.clone(), ui) {
                 GuiError::display_error_or_print(self.state.clone(), error.to_string());
             }
         });
@@ -231,11 +250,8 @@ impl Gui {
             }
         };
 
-        match State::save_vault_to_file(state.clone(), path.as_str()).await {
-            Ok(()) => (),
-            Err(error) => {
-                GuiError::display_error_or_print(state, error.to_string());
-            }
+        if let Err(error) = State::save_vault_to_file(state.clone(), path.as_str()).await {
+            GuiError::display_error_or_print(state, error.to_string());
         }
     }
 
