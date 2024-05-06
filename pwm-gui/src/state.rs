@@ -156,7 +156,7 @@ impl State {
 
     pub async fn insert(state: Arc<State>, name: String) -> Result<(), GuiError> {
         let receiver =
-            Self::add_password_prompt(state.clone(), format!("Enter password for {}", name))?;
+            Self::add_password_prompt(state.clone(), format!("Enter master password for {}", name))?;
 
         let password = receiver.recv()?;
         let receiver =
@@ -176,7 +176,7 @@ impl State {
 
     pub async fn remove(state: Arc<State>, name: String) -> Result<(), GuiError> {
         let receiver =
-            Self::add_password_prompt(state.clone(), format!("Enter password for {}", name))?;
+            Self::add_password_prompt(state.clone(), format!("Enter master password for {}", name))?;
         let password = receiver.recv()?;
 
         let mut vault = state.vault.lock()?;
@@ -191,7 +191,7 @@ impl State {
 
     pub async fn get(state: Arc<State>, name: String) -> Result<(), GuiError> {
         let receiver =
-            Self::add_password_prompt(state.clone(), format!("Enter password for {}", name))?;
+            Self::add_password_prompt(state.clone(), format!("Enter master password for {}", name))?;
         let password = receiver.recv()?;
 
         let vault = state.vault.lock()?;
