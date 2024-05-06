@@ -9,7 +9,7 @@ use std::{
 use eframe::egui;
 
 use pwm_db::db_base::DatabaseError;
-use pwm_lib::crypt_file::{decrypt_file, encrypt_file};
+use pwm_lib::{crypt_file::{decrypt_file, encrypt_file}, zeroize::Zeroizing};
 
 #[derive(Debug)]
 pub enum GuiError {
@@ -253,7 +253,7 @@ impl Gui {
         }
     }
 
-    async fn crypt_prelude(state: Arc<State>) -> Option<(String, String)> {
+    async fn crypt_prelude(state: Arc<State>) -> Option<(String, Zeroizing<String>)> {
         let file = Self::open_file_dialog(state.clone());
         if let Some(file_path) = file {
             let file = get_file_name(file_path);

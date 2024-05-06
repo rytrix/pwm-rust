@@ -1,6 +1,7 @@
 use eframe::egui;
 use eframe::egui::Ui;
 use egui_extras::{Column, TableBuilder};
+use pwm_lib::zeroize::Zeroizing;
 
 use crate::gui::{get_file_name, Gui, GuiError};
 use crate::password::password_ui;
@@ -16,7 +17,7 @@ pub struct State {
     pub prev_file: Mutex<Option<String>>,
     pub errors: Mutex<Vec<(String, Timer)>>,
     // Prompt, Password, Sender
-    pub password: Mutex<Vec<(String, String, Sender<String>)>>,
+    pub password: Mutex<Vec<(String, Zeroizing<String>, Sender<Zeroizing<String>>)>>,
     pub vault: Mutex<Option<Vault>>,
 }
 
@@ -217,11 +218,11 @@ impl State {
     pub fn add_password_prompt(
         state: Arc<State>,
         prompt: String,
-    ) -> Result<Receiver<String>, GuiError> {
+    ) -> Result<Receiver<Zeroizing<String>>, GuiError> {
         let (sender, receiver) = channel();
 
         let mut vec = state.password.lock()?;
-        vec.push((prompt, String::new(), sender));
+        vec.push((prompt, Zeroizing::new(String::new()), sender));
 
         return Ok(receiver);
     }

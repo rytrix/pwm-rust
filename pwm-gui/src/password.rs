@@ -1,9 +1,10 @@
-use std::sync::mpsc::Sender;
+use std::{borrow::BorrowMut, sync::mpsc::Sender};
 
 use eframe::egui;
+use pwm_lib::zeroize::Zeroizing;
 
 #[allow(clippy::ptr_arg)] // false positive
-pub fn password_ui(ui: &mut egui::Ui, password: (&mut String, &mut Sender<String>)) -> (bool, egui::Response) {
+pub fn password_ui(ui: &mut egui::Ui, password: (&mut Zeroizing<String>, &mut Sender<Zeroizing<String>>)) -> (bool, egui::Response) {
     let mut remove = false;
     // Generate an id for the state
     let state_id = ui.id().with("show_plaintext");
@@ -30,7 +31,7 @@ pub fn password_ui(ui: &mut egui::Ui, password: (&mut String, &mut Sender<String
         }
 
         // Show the password field:
-        let buffer = password.0;
+        let buffer: &mut String = password.0.borrow_mut();
         ui.add_sized(
             ui.available_size(),
             egui::TextEdit::singleline(buffer).password(!show_plaintext),
