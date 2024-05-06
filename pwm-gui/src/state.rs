@@ -7,7 +7,7 @@ use crate::password::password_ui;
 use crate::timer::Timer;
 use crate::vault::Vault;
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
 use std::sync::Mutex;
