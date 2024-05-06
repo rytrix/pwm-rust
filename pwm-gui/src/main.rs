@@ -9,6 +9,7 @@ use timer::Timer;
 use std::{path::PathBuf, sync::Arc};
 
 use eframe::egui;
+
 use pwm_lib::crypt_file::{decrypt_file, encrypt_file};
 use vault::Vault;
 
@@ -28,6 +29,7 @@ enum GuiError {
     RecvFail(String),
     DatabaseError(String),
     NoFile,
+    NoVault,
 }
 
 impl std::fmt::Display for GuiError {
@@ -37,6 +39,7 @@ impl std::fmt::Display for GuiError {
             Self::RecvFail(msg) => f.write_fmt(std::format_args!("Failed to recv: {}", msg)),
             Self::DatabaseError(msg) => f.write_fmt(std::format_args!("Vault error: {}", msg)),
             Self::NoFile => f.write_str("No file selected"),
+            Self::NoVault => f.write_str("No vault opened"),
         };
     }
 }
@@ -45,7 +48,6 @@ impl std::error::Error for GuiError {}
 
 struct Gui {
     scale: f32,
-
     state: Arc<State>,
 }
 
@@ -53,11 +55,6 @@ impl Default for Gui {
     fn default() -> Self {
         Self {
             scale: 1.8,
-
-            // Need some sort of password event stack.
-            // Takes password then performs the task, maybe some sort of lambda
-            // Event -> Requires password -> Pass lambda to password stack
-            // password stack dictates password mode
             state: Arc::new(State::default()),
         }
     }
@@ -89,25 +86,88 @@ impl Gui {
         file
     }
 
+    fn save_file_dialog(state: Arc<State>) -> Option<PathBuf> {
+        let dialog = rfd::FileDialog::new();
+
+        let mut dialog = match state.vault.lock() {
+            Ok(vault) => {
+                if let Some(vault) = &*vault {
+                    let name = vault.name_buffer.clone();
+                    dialog.set_file_name(name)
+                } else {
+                    dialog
+                }
+            }
+            Err(_) => return None,
+        };
+
+        match std::env::current_dir() {
+            Ok(path) => {
+                dialog = dialog.set_directory(path);
+            }
+            Err(error) => {
+                // TODO logging
+                eprintln!("Could not open current directory: {}", error.to_string());
+            }
+        };
+
+        let file = dialog.save_file();
+        if let Some(file) = &file {
+            *match state.prev_file.lock() {
+                Ok(prev_file) => prev_file,
+                Err(_) => return None,
+            } = Some(file.display().to_string());
+
+            eprintln!("Saved file {}", file.display().to_string());
+        }
+        file
+    }
+
     async fn file_new(state: Arc<State>) {
-        println!("New vault");
+        let error = State::create_vault(state).await;
+        if let Err(error) = error {
+            eprintln!("Error: {}", error.to_string());
+        }
     }
 
     async fn file_open(state: Arc<State>) {
-        if let Some(path) = Self::open_file_dialog(state) {
-            println!("{}", path.display().to_string());
+        let error = State::open_vault_from_file(state).await;
+        if let Err(error) = error {
+            eprintln!("Error: {}", error.to_string());
         }
     }
 
     async fn file_save(state: Arc<State>) {
-        if let Some(path) = Self::open_file_dialog(state) {
-            println!("{}", path.display().to_string());
+        let path = match state.prev_file.lock() {
+            Ok(path) => {
+                if let Some(path) = &*path {
+                    path.clone()
+                } else {
+                    eprintln!("No previous file");
+                    return;
+                }
+            }
+            Err(error) => {
+                eprintln!("File save error: {}", error.to_string());
+                return;
+            }
+        };
+
+        let error = State::save_vault_to_file(state, path.as_str()).await;
+        if let Err(error) = error {
+            eprintln!("Error: {}", error.to_string());
         }
     }
 
     async fn file_save_as(state: Arc<State>) {
-        if let Some(path) = Self::open_file_dialog(state) {
-            println!("{}", path.display().to_string());
+        let path = match Self::save_file_dialog(state.clone()) {
+            Some(path) => path,
+            None => return,
+        };
+
+        let error = State::save_vault_to_file(state, path.display().to_string().as_str()).await;
+        if let Err(error) = error {
+            eprintln!("Error: {}", error.to_string());
         }
     }
 
@@ -208,6 +268,11 @@ impl eframe::App for Gui {
             let _ = State::display_password_prompts(self.state.clone(), ui);
 
             let _ = State::display_errors(self.state.clone(), ui);
+
+            let _ = State::display_vault(self.state.clone(), ui);
+            // if let Err(error) = error {
+            //     eprintln!("{}", error.to_string());
+            // }
 
             ui.collapsing("Vault", |ui| {
                 TableBuilder::new(ui)
