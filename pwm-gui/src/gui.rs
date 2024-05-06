@@ -7,9 +7,14 @@ use std::{
 };
 
 use eframe::egui;
+use log::info;
+use log::{error, warn};
 
 use pwm_db::db_base::DatabaseError;
-use pwm_lib::{crypt_file::{decrypt_file, encrypt_file}, zeroize::Zeroizing};
+use pwm_lib::{
+    crypt_file::{decrypt_file, encrypt_file},
+    zeroize::Zeroizing,
+};
 
 #[derive(Debug)]
 pub enum GuiError {
@@ -23,7 +28,7 @@ pub enum GuiError {
 impl GuiError {
     fn display_error_or_print(state: Arc<State>, error: String) {
         if let Err(display_error) = State::add_error(state, (error.to_string(), Timer::default())) {
-            eprintln!(
+            error!(
                 "Failed to display error \"{}\", because of error: \"{}\"",
                 error.to_string(),
                 display_error.to_string()
@@ -158,7 +163,7 @@ impl Gui {
                 Err(_) => return None,
             } = Some(file.display().to_string());
 
-            eprintln!("Selected file {}", file.display().to_string());
+            info!("Selected file {}", file.display().to_string());
         }
         file
     }
@@ -183,8 +188,7 @@ impl Gui {
                 dialog = dialog.set_directory(path);
             }
             Err(error) => {
-                // TODO logging
-                eprintln!("Could not open current directory: {}", error.to_string());
+                warn!("Could not open current directory: {}", error.to_string());
             }
         };
 
@@ -195,7 +199,7 @@ impl Gui {
                 Err(_) => return None,
             } = Some(file.display().to_string());
 
-            eprintln!("Saving file to {}", file.display().to_string());
+            info!("Selected save file \"{}\"", file.display().to_string());
         }
         file
     }
