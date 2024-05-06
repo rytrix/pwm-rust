@@ -7,6 +7,7 @@ use pwm_lib::crypt_file::{decrypt_file, encrypt_file};
 use clap::{ArgAction, Parser};
 
 #[derive(Parser, Debug)]
+#[command(arg_required_else_help = true)]
 #[command(version)]
 struct Args {
     /// File to encrypt
