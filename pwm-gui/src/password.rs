@@ -30,7 +30,6 @@ pub fn password_ui(ui: &mut egui::Ui, password: (&mut String, &mut Sender<String
         }
 
         // Show the password field:
-        // Is this going to be a deadlock??
         let buffer = password.0;
         ui.add_sized(
             ui.available_size(),
