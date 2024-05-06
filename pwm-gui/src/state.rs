@@ -1,12 +1,11 @@
-use crate::egui;
+use eframe::egui;
 use eframe::egui::Ui;
 use egui_extras::{Column, TableBuilder};
 
+use crate::gui::{Gui, GuiError};
 use crate::password::password_ui;
-use crate::Gui;
-use crate::GuiError;
-use crate::Timer;
-use crate::Vault;
+use crate::timer::Timer;
+use crate::vault::Vault;
 
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
