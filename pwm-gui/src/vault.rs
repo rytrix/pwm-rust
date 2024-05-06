@@ -59,10 +59,12 @@ impl Vault {
         data: &[u8],
         password: &[u8],
     ) -> Result<(), DatabaseError> {
+        self.changed = true;
         self.db.insert(name, data, password)
     }
 
     pub fn remove(&mut self, name: &String, password: &[u8]) -> Result<(), DatabaseError> {
+        self.changed = true;
         self.db.remove(name, password)
     }
 
