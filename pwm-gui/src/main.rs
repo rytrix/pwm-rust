@@ -270,10 +270,10 @@ impl eframe::App for Gui {
 
             let _ = State::display_errors(self.state.clone(), ui);
 
-            let error = State::display_vault(self.state.clone(), ui);
-            if let Err(error) = error {
-                eprintln!("{}", error.to_string());
-            }
+            let _ = State::display_vault(self.state.clone(), ui);
+            // if let Err(error) = error {
+            //     eprintln!("{}", error.to_string());
+            // }
 
             ui.collapsing("Vault", |ui| {
                 TableBuilder::new(ui)

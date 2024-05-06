@@ -20,6 +20,10 @@ pub fn password_ui(ui: &mut egui::Ui, password: (&mut String, &mut Sender<String
             show_plaintext = !show_plaintext;
         }
 
+        if ui.button("Cancel").clicked() {
+            remove = true;
+        }
+
         if ui.button("Enter").clicked() {
             password.1.send(password.0.clone()).unwrap();
             remove = true;
