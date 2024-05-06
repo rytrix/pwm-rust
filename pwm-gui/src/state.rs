@@ -111,25 +111,6 @@ impl State {
         let list: Vec<String>;
         let name: String;
 
-        {
-            let vault = match state.vault.lock() {
-                Ok(vault) => vault,
-                Err(error) => return Err(GuiError::LockFail(error.to_string())),
-            };
-
-            let vault = match &*vault {
-                Some(vault) => vault,
-                None => return Err(GuiError::NoVault),
-            };
-
-            list = match vault.list() {
-                Ok(list) => list,
-                Err(error) => return Err(GuiError::DatabaseError(error.to_string())),
-            };
-
-            name = vault.name_buffer.clone();
-        }
-
         let mut vault = match state.vault.lock() {
             Ok(vault) => vault,
             Err(error) => return Err(GuiError::LockFail(error.to_string())),
@@ -137,18 +118,25 @@ impl State {
 
         let vault = match &mut *vault {
             Some(vault) => vault,
-            None => return Err(GuiError::NoVault),
+            None => return Ok(()),
         };
+
+        list = match vault.list() {
+            Ok(list) => list,
+            Err(error) => return Err(GuiError::DatabaseError(error.to_string())),
+        };
+
+        name = vault.name_buffer.clone();
 
         ui.collapsing(name, |ui| {
             ui.horizontal(|ui| {
+                ui.add_sized(
+                    [100.0, 20.0],
+                    egui::TextEdit::singleline(&mut vault.insert_buffer),
+                );
                 if ui.button("Insert").clicked() {
                     tokio::spawn(Self::insert(state.clone(), vault.insert_buffer.clone()));
                 }
-                ui.add_sized(
-                    ui.available_size(),
-                    egui::TextEdit::singleline(&mut vault.insert_buffer),
-                );
             });
 
             let builder = TableBuilder::new(ui)

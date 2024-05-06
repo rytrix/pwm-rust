@@ -223,8 +223,6 @@ impl Gui {
 
 impl eframe::App for Gui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        use egui_extras::{Column, TableBuilder};
-
         egui::CentralPanel::default().show(ctx, |ui| {
             ctx.set_pixels_per_point(self.scale);
 
@@ -265,54 +263,27 @@ impl eframe::App for Gui {
             });
             // Top Bar End
 
-            let _ = State::display_password_prompts(self.state.clone(), ui);
+            let error = State::display_password_prompts(self.state.clone(), ui);
+            if let Err(error) = error {
+                eprintln!("{}", error.to_string());
+            }
 
-            let _ = State::display_errors(self.state.clone(), ui);
+            let error = State::display_errors(self.state.clone(), ui);
+            if let Err(error) = error {
+                eprintln!("{}", error.to_string());
+            }
 
-            let _ = State::display_vault(self.state.clone(), ui);
-            // if let Err(error) = error {
-            //     eprintln!("{}", error.to_string());
-            // }
-
-            ui.collapsing("Vault", |ui| {
-                TableBuilder::new(ui)
-                    .striped(true)
-                    .resizable(true)
-                    .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                    .column(Column::auto())
-                    .column(Column::auto())
-                    .column(Column::auto())
-                    .min_scrolled_height(0.0)
-                    .header(20.0, |mut header| {
-                        header.col(|ui| {
-                            ui.strong("Row");
-                        });
-                        header.col(|ui| {
-                            ui.strong("Key");
-                        });
-                        header.col(|ui| {
-                            ui.strong("Data");
-                        });
-                    })
-                    .body(|mut body| {
-                        for row_index in 0..50 {
-                            let row_height = 30.0;
-                            body.row(row_height, |mut row| {
-                                row.col(|ui| {
-                                    ui.label(row_index.to_string());
-                                });
-                                row.col(|ui| {
-                                    ui.label("Names can be found here");
-                                });
-                                row.col(|ui| {
-                                    // ui.checkbox(true, "Click me");
-                                    ui.button("Get data").clicked();
-                                    ui.add_space(8.0);
-                                });
-                            });
-                        }
-                    });
-            });
+            let error = State::display_vault(self.state.clone(), ui);
+            if let Err(error) = error {
+                eprintln!("{}", error.to_string());
+            }
         });
+    }
+}
+
+impl Drop for Gui {
+    fn drop(&mut self) {
+        let mut senders = self.state.password.lock().unwrap();
+        senders.clear();
     }
 }
