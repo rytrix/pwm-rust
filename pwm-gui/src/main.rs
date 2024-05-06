@@ -6,9 +6,7 @@ mod vault;
 use state::State;
 use timer::Timer;
 
-use std::{
-    path::PathBuf, sync::Arc
-};
+use std::{path::PathBuf, sync::Arc};
 
 use eframe::egui;
 use pwm_lib::crypt_file::{decrypt_file, encrypt_file};
