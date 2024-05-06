@@ -6,6 +6,8 @@ use pwm_db::{
 };
 use pwm_lib::aes_wrapper::AesResult;
 
+use crate::gui::get_file_name;
+
 pub struct Vault {
     db: DatabaseEncrypted,
     changed: bool,
@@ -36,19 +38,12 @@ impl Vault {
         let db = DatabaseEncrypted::new_deserialize_encrypted(&contents, password)?;
 
         let path = Path::new(file);
-
-        let name = match path.file_name() {
-            Some(name) => match name.to_str() {
-                Some(name) => name,
-                None => file,
-            },
-            None => file,
-        };
+        let name = get_file_name(path.to_path_buf());
 
         Ok(Self {
             db,
             changed: false,
-            name_buffer: String::from(name),
+            name_buffer: name,
             insert_buffer: String::new(),
         })
     }

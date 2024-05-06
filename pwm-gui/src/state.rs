@@ -2,11 +2,12 @@ use eframe::egui;
 use eframe::egui::Ui;
 use egui_extras::{Column, TableBuilder};
 
-use crate::gui::{Gui, GuiError};
+use crate::gui::{get_file_name, Gui, GuiError};
 use crate::password::password_ui;
 use crate::timer::Timer;
 use crate::vault::Vault;
 
+use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -69,11 +70,13 @@ impl State {
             Self::add_password_prompt(state.clone(), String::from("Save vault password"))?;
 
         let password = receiver.recv()?;
-        let vault = state.vault.lock()?;
-        let vault = match &*vault {
+        let mut vault = state.vault.lock()?;
+        let vault = match &mut *vault {
             Some(vault) => vault,
             None => return Err(GuiError::NoVault),
         };
+
+        vault.name_buffer = get_file_name(Path::new(path).to_path_buf());
 
         vault.serialize_to_file(&path, password.as_bytes())?;
         Ok(())
