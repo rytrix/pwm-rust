@@ -173,8 +173,15 @@ impl Gui {
 
     async fn crypt_prelude(state: Arc<State>) -> Option<(String, String)> {
         let file = Self::open_file_dialog(state.clone());
-        if let Some(file) = file {
-            let file = file.display().to_string();
+        if let Some(file_path) = file {
+            // let file = file.display().to_string();
+            let file = match file_path.file_name() {
+                Some(file) => match file.to_str() {
+                    Some(file) => file.to_string(),
+                    None => file_path.display().to_string(),
+                }
+                None => file_path.display().to_string(),
+            };
 
             let receiver = match State::add_password_prompt(
                 state.clone(),
@@ -186,7 +193,7 @@ impl Gui {
 
             let password = receiver.recv().unwrap();
 
-            return Some((file, password));
+            return Some((String::from(file), password));
         }
 
         None
