@@ -109,23 +109,48 @@ impl State {
 
     pub fn display_vault(state: Arc<State>, ui: &mut Ui) -> Result<(), GuiError> {
         let list: Vec<String>;
+        let name: String;
 
-        let vault = match state.vault.lock() {
+        {
+            let vault = match state.vault.lock() {
+                Ok(vault) => vault,
+                Err(error) => return Err(GuiError::LockFail(error.to_string())),
+            };
+
+            let vault = match &*vault {
+                Some(vault) => vault,
+                None => return Err(GuiError::NoVault),
+            };
+
+            list = match vault.list() {
+                Ok(list) => list,
+                Err(error) => return Err(GuiError::DatabaseError(error.to_string())),
+            };
+
+            name = vault.name_buffer.clone();
+        }
+
+        let mut vault = match state.vault.lock() {
             Ok(vault) => vault,
             Err(error) => return Err(GuiError::LockFail(error.to_string())),
         };
 
-        let vault = match &*vault {
+        let vault = match &mut *vault {
             Some(vault) => vault,
             None => return Err(GuiError::NoVault),
         };
 
-        list = match vault.list() {
-            Ok(list) => list,
-            Err(error) => return Err(GuiError::DatabaseError(error.to_string())),
-        };
+        ui.collapsing(name, |ui| {
+            ui.horizontal(|ui| {
+                if ui.button("Insert").clicked() {
+                    tokio::spawn(Self::insert(state.clone(), vault.insert_buffer.clone()));
+                }
+                ui.add_sized(
+                    ui.available_size(),
+                    egui::TextEdit::singleline(&mut vault.insert_buffer),
+                );
+            });
 
-        ui.collapsing(vault.name.as_str(), |ui| {
             let builder = TableBuilder::new(ui)
                 .striped(true)
                 .resizable(true)
@@ -151,21 +176,124 @@ impl State {
                     for row_index in 0..list.len() {
                         let row_height = 30.0;
                         body.row(row_height, |mut row| {
+                            let name = &list[row_index];
                             row.col(|ui| {
                                 ui.label(row_index.to_string());
                             });
                             row.col(|ui| {
-                                ui.label(format!("name: {}", list[row_index]));
+                                ui.label(format!("{}", name.clone()));
                             });
                             row.col(|ui| {
-                                // ui.checkbox(true, "Click me");
-                                ui.button("Get data").clicked();
-                                ui.add_space(8.0);
+                                if ui.button("Get data").clicked() {
+                                    tokio::spawn(Self::get(state.clone(), name.clone()));
+                                }
+                                if ui.button("Delete data").clicked() {
+                                    tokio::spawn(Self::remove(state.clone(), name.clone()));
+                                }
+                                // ui.add_space(8.0);
                             });
                         });
                     }
                 });
         });
+
+        Ok(())
+    }
+
+    pub async fn insert(state: Arc<State>, name: String) -> Result<(), GuiError> {
+        let receiver =
+            Self::add_password_prompt(state.clone(), format!("Enter password for {}", name))?;
+
+        let password = match receiver.recv() {
+            Ok(password) => password,
+            Err(error) => return Err(GuiError::RecvFail(error.to_string())),
+        };
+
+        let receiver =
+            Self::add_password_prompt(state.clone(), format!("Enter entry for {}", name))?;
+
+        let data = match receiver.recv() {
+            Ok(password) => password,
+            Err(error) => return Err(GuiError::RecvFail(error.to_string())),
+        };
+
+        let mut vault = match state.vault.lock() {
+            Ok(vault) => vault,
+            Err(error) => return Err(GuiError::LockFail(error.to_string())),
+        };
+
+        let vault = match &mut *vault {
+            Some(vault) => vault,
+            None => return Err(GuiError::NoVault),
+        };
+
+        match vault.insert(&name, data.as_bytes(), password.as_bytes()) {
+            Ok(()) => (),
+            Err(error) => return Err(GuiError::DatabaseError(error.to_string())),
+        };
+
+        Ok(())
+    }
+
+    pub async fn remove(state: Arc<State>, name: String) -> Result<(), GuiError> {
+        let receiver =
+            Self::add_password_prompt(state.clone(), format!("Enter password for {}", name))?;
+
+        let password = match receiver.recv() {
+            Ok(password) => password,
+            Err(error) => return Err(GuiError::RecvFail(error.to_string())),
+        };
+
+        let mut vault = match state.vault.lock() {
+            Ok(vault) => vault,
+            Err(error) => return Err(GuiError::LockFail(error.to_string())),
+        };
+
+        let vault = match &mut *vault {
+            Some(vault) => vault,
+            None => return Err(GuiError::NoVault),
+        };
+
+        match vault.remove(&name, password.as_bytes()) {
+            Ok(()) => (),
+            Err(error) => return Err(GuiError::DatabaseError(error.to_string())),
+        };
+
+        Ok(())
+    }
+
+    pub async fn get(state: Arc<State>, name: String) -> Result<(), GuiError> {
+        let receiver =
+            Self::add_password_prompt(state.clone(), format!("Enter password for {}", name))?;
+
+        let password = match receiver.recv() {
+            Ok(password) => password,
+            Err(error) => return Err(GuiError::RecvFail(error.to_string())),
+        };
+
+        let vault = match state.vault.lock() {
+            Ok(vault) => vault,
+            Err(error) => return Err(GuiError::LockFail(error.to_string())),
+        };
+
+        let vault = match &*vault {
+            Some(vault) => vault,
+            None => return Err(GuiError::NoVault),
+        };
+
+        let result = match vault.get(&name, password.as_bytes()) {
+            Ok(result) => result,
+            Err(error) => return Err(GuiError::DatabaseError(error.to_string())),
+        };
+
+        use std::str;
+        let result = match str::from_utf8(result.as_ref()) {
+            Ok(result) => result,
+            Err(error) => panic!("Invalid UTF-8 sequence: {}", error),
+        };
+
+        // TODO clipboard or something
+        eprintln!("Result: {}", result);
 
         Ok(())
     }

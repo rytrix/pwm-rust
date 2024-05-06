@@ -1,23 +1,24 @@
-use pwm_db::{db_base::DatabaseError, db_encrypted::{DatabaseEncrypted, forget_hash::DatabaseInterface}};
+use pwm_db::{
+    db_base::DatabaseError,
+    db_encrypted::{forget_hash::DatabaseInterface, DatabaseEncrypted},
+};
 use pwm_lib::aes_wrapper::AesResult;
 
 pub struct Vault {
     db: DatabaseEncrypted,
     changed: bool,
-    pub name: String,
+    pub name_buffer: String,
+    pub insert_buffer: String,
 }
 
 impl Vault {
     pub fn new(name: &str, password: &[u8]) -> Result<Self, DatabaseError> {
         let db = DatabaseEncrypted::new(password)?;
-        // let hash = match argon2_hash_password(password) {
-        //     Ok(value) => value,
-        //     Err(error) => return Err(DatabaseError::FailedHash(error.to_string())),
-        // };
         Ok(Self {
             db,
             changed: true,
-            name: String::from(name),
+            name_buffer: String::from(name),
+            insert_buffer: String::new(),
         })
     }
 
@@ -35,11 +36,17 @@ impl Vault {
         Ok(Self {
             db,
             changed: false,
-            name: String::from(file),
+            name_buffer: String::from(file),
+            insert_buffer: String::new(),
         })
     }
 
-    pub fn insert(&mut self, name: &String, data: &[u8], password: &[u8]) -> Result<(), DatabaseError> {
+    pub fn insert(
+        &mut self,
+        name: &String,
+        data: &[u8],
+        password: &[u8],
+    ) -> Result<(), DatabaseError> {
         self.db.insert(name, data, password)
     }
 

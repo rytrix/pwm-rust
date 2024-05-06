@@ -48,7 +48,6 @@ impl std::error::Error for GuiError {}
 
 struct Gui {
     scale: f32,
-
     state: Arc<State>,
 }
 
@@ -93,7 +92,7 @@ impl Gui {
         let mut dialog = match state.vault.lock() {
             Ok(vault) => {
                 if let Some(vault) = &*vault {
-                    let name = vault.name.clone();
+                    let name = vault.name_buffer.clone();
                     dialog.set_file_name(name)
                 } else {
                     dialog
