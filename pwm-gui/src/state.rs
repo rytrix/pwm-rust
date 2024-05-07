@@ -19,6 +19,7 @@ pub struct State {
     // Prompt, Password, Sender
     pub password: Mutex<Vec<(String, Zeroizing<String>, Sender<Zeroizing<String>>)>>,
     pub vault: Mutex<Option<Vault>>,
+    pub clipboard_string: Mutex<Option<Zeroizing<String>>>,
 }
 
 impl Default for State {
@@ -28,6 +29,7 @@ impl Default for State {
             errors: Mutex::new(Vec::new()),
             password: Mutex::new(Vec::new()),
             vault: Mutex::new(None),
+            clipboard_string: Mutex::new(None),
         }
     }
 }
@@ -132,6 +134,7 @@ impl State {
                         let row_height = 30.0;
                         body.row(row_height, |mut row| {
                             let name = &list[row_index];
+
                             // row.col(|ui| {
                             //     ui.label(row_index.to_string());
                             // });
@@ -156,8 +159,10 @@ impl State {
     }
 
     pub async fn insert(state: Arc<State>, name: String) -> Result<(), GuiError> {
-        let receiver =
-            Self::add_password_prompt(state.clone(), format!("Enter master password for {}", name))?;
+        let receiver = Self::add_password_prompt(
+            state.clone(),
+            format!("Enter master password for {}", name),
+        )?;
 
         let password = receiver.recv()?;
         let receiver =
@@ -176,8 +181,10 @@ impl State {
     }
 
     pub async fn remove(state: Arc<State>, name: String) -> Result<(), GuiError> {
-        let receiver =
-            Self::add_password_prompt(state.clone(), format!("Enter master password for {}", name))?;
+        let receiver = Self::add_password_prompt(
+            state.clone(),
+            format!("Enter master password for {}", name),
+        )?;
         let password = receiver.recv()?;
 
         let mut vault = state.vault.lock()?;
@@ -191,8 +198,10 @@ impl State {
     }
 
     pub async fn get(state: Arc<State>, name: String) -> Result<(), GuiError> {
-        let receiver =
-            Self::add_password_prompt(state.clone(), format!("Enter master password for {}", name))?;
+        let receiver = Self::add_password_prompt(
+            state.clone(),
+            format!("Enter master password for {}", name),
+        )?;
         let password = receiver.recv()?;
 
         let vault = state.vault.lock()?;
@@ -206,13 +215,26 @@ impl State {
         use std::str;
         let result = match str::from_utf8(result.as_ref()) {
             Ok(result) => result,
-            Err(error) => panic!("Invalid UTF-8 sequence: {}", error),
+            Err(error) => {
+                panic!("Invalid UTF-8 sequence: {}", error)
+            }
         };
 
-        // TODO clipboard or something
-        eprintln!("Result: {}", result);
+        let mut string = state.clipboard_string.lock()?;
+        *string = Some(Zeroizing::new(result.to_string()));
 
         Ok(())
+
+        // use std::str;
+        // let result = match str::from_utf8(result.as_ref()) {
+        //     Ok(result) => result,
+        //     Err(error) => panic!("Invalid UTF-8 sequence: {}", error),
+        // };
+
+        // // TODO clipboard or something
+        // eprintln!("Result: {}", result);
+
+        // Ok(())
     }
 
     pub fn add_password_prompt(

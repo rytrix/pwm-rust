@@ -7,8 +7,7 @@ use std::{
 };
 
 use eframe::egui;
-use log::info;
-use log::{error, warn};
+use log::{error, info, warn};
 
 use pwm_db::db_base::DatabaseError;
 use pwm_lib::{
@@ -26,7 +25,7 @@ pub enum GuiError {
 }
 
 impl GuiError {
-    fn display_error_or_print(state: Arc<State>, error: String) {
+    pub fn display_error_or_print(state: Arc<State>, error: String) {
         if let Err(display_error) = State::add_error(state, (error.to_string(), Timer::default())) {
             error!(
                 "Failed to display error \"{}\", because of error: \"{}\"",
@@ -87,6 +86,17 @@ impl eframe::App for Gui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ctx.set_pixels_per_point(self.scale);
+
+            ui.output_mut(|o| {
+                if let Ok(mut clipboard) = self.state.clipboard_string.lock() {
+                    if let Some(result) = &mut *clipboard {
+                        println!("{}", result.as_str());
+                        let string = result.to_string();
+                        o.copied_text = string;
+                        *clipboard = None;
+                    }
+                }
+            });
 
             let _text_height = egui::TextStyle::Body
                 .resolve(ui.style())
