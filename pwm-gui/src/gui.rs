@@ -22,6 +22,7 @@ pub enum GuiError {
     DatabaseError(String),
     NoFile,
     NoVault,
+    Utf8Fail(String),
 }
 
 impl GuiError {
@@ -44,6 +45,7 @@ impl std::fmt::Display for GuiError {
             Self::DatabaseError(msg) => f.write_fmt(std::format_args!("Vault error: {}", msg)),
             Self::NoFile => f.write_str("No file selected"),
             Self::NoVault => f.write_str("No vault opened"),
+            Self::Utf8Fail(msg) => f.write_fmt(std::format_args!("{}", msg)),
         };
     }
 }
@@ -90,7 +92,7 @@ impl eframe::App for Gui {
             ui.output_mut(|o| {
                 if let Ok(mut clipboard) = self.state.clipboard_string.lock() {
                     if let Some(result) = &mut *clipboard {
-                        println!("{}", result.as_str());
+                        // println!("{}", result.as_str());
                         let string = result.to_string();
                         o.copied_text = string;
                         *clipboard = None;

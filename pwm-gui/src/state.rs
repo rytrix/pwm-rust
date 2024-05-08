@@ -36,8 +36,10 @@ impl Default for State {
 
 impl State {
     pub async fn create_vault(state: Arc<State>) -> Result<(), GuiError> {
-        let receiver =
-            Self::add_password_prompt(state.clone(), String::from("New vault password"))?;
+        let receiver = Self::add_password_prompt(
+            state.clone(),
+            String::from("Enter new vault's master password"),
+        )?;
         let password = receiver.recv()?;
 
         let mut vault = state.vault.lock()?;
@@ -55,8 +57,10 @@ impl State {
             None => return Err(GuiError::NoFile),
         };
 
-        let receiver =
-            Self::add_password_prompt(state.clone(), String::from("New vault password"))?;
+        let receiver = Self::add_password_prompt(
+            state.clone(),
+            String::from("Enter new vault's master password"),
+        )?;
         let password = receiver.recv()?;
 
         let mut vault = state.vault.lock()?;
@@ -69,8 +73,10 @@ impl State {
     }
 
     pub async fn save_vault_to_file(state: Arc<State>, path: &str) -> Result<(), GuiError> {
-        let receiver =
-            Self::add_password_prompt(state.clone(), String::from("Save vault password"))?;
+        let receiver = Self::add_password_prompt(
+            state.clone(),
+            String::from("Enter master password to save vault"),
+        )?;
 
         let password = receiver.recv()?;
         let mut vault = state.vault.lock()?;
@@ -98,71 +104,75 @@ impl State {
         list = vault.list()?;
         name = vault.name_buffer.clone();
 
-        ui.collapsing(name, |ui| {
-            ui.horizontal(|ui| {
-                ui.add_sized(
-                    [100.0, 20.0],
-                    egui::TextEdit::singleline(&mut vault.insert_buffer),
-                );
-                if ui.button("Insert").clicked() {
-                    tokio::spawn(Self::insert(state.clone(), vault.insert_buffer.clone()));
-                }
-            });
-
-            let builder = TableBuilder::new(ui)
-                .striped(true)
-                .resizable(true)
-                .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                .column(Column::auto())
-                .column(Column::auto())
-                .min_scrolled_height(0.0);
-
-            builder
-                .header(20.0, |mut header| {
-                    // header.col(|ui| {
-                    //     ui.strong("Row");
-                    // });
-                    header.col(|ui| {
-                        ui.strong("Key");
-                    });
-                    header.col(|ui| {
-                        ui.strong("Data");
-                    });
-                })
-                .body(|mut body| {
-                    for row_index in 0..list.len() {
-                        let row_height = 30.0;
-                        body.row(row_height, |mut row| {
-                            let name = &list[row_index];
-
-                            // row.col(|ui| {
-                            //     ui.label(row_index.to_string());
-                            // });
-                            row.col(|ui| {
-                                ui.label(format!("{}", name.clone()));
-                            });
-                            row.col(|ui| {
-                                if ui.button("Get data").clicked() {
-                                    tokio::spawn(Self::get(state.clone(), name.clone()));
-                                }
-                                if ui.button("Delete data").clicked() {
-                                    tokio::spawn(Self::remove(state.clone(), name.clone()));
-                                }
-                                // ui.add_space(8.0);
-                            });
-                        });
+        ui.horizontal(|ui| {
+            ui.heading(name);
+            ui.menu_button("Insert", |ui| {
+                ui.horizontal(|ui| {
+                    let response = ui.add_sized(
+                        [100.0, 20.0],
+                        egui::TextEdit::singleline(&mut vault.insert_buffer),
+                    );
+                    if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                        tokio::spawn(Self::insert(state.clone(), vault.insert_buffer.clone()));
+                        vault.insert_buffer.clear();
+                    }
+                    if ui.button("Insert").clicked() {
+                        tokio::spawn(Self::insert(state.clone(), vault.insert_buffer.clone()));
+                        vault.insert_buffer.clear();
                     }
                 });
+            });
         });
+
+        let builder = TableBuilder::new(ui)
+            .striped(true)
+            .resizable(true)
+            .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+            .column(Column::auto())
+            .column(Column::auto())
+            .min_scrolled_height(0.0);
+
+        builder
+            .header(20.0, |mut header| {
+                // header.col(|ui| {
+                //     ui.strong("Row");
+                // });
+                header.col(|ui| {
+                    ui.strong("Key");
+                });
+                header.col(|ui| {
+                    ui.strong("Data");
+                });
+            })
+            .body(|mut body| {
+                for row_index in 0..list.len() {
+                    let row_height = 30.0;
+                    body.row(row_height, |mut row| {
+                        let name = &list[row_index];
+
+                        // row.col(|ui| {
+                        //     ui.label(row_index.to_string());
+                        // });
+                        row.col(|ui| {
+                            ui.label(format!("{}", name.clone()));
+                        });
+                        row.col(|ui| {
+                            if ui.button("Get").clicked() {
+                                tokio::spawn(Self::get(state.clone(), name.clone()));
+                            }
+                            if ui.button("Delete").clicked() {
+                                tokio::spawn(Self::remove(state.clone(), name.clone()));
+                            }
+                        });
+                    });
+                }
+            });
 
         Ok(())
     }
 
     pub async fn insert(state: Arc<State>, name: String) -> Result<(), GuiError> {
-        let receiver = Self::add_password_prompt(
-            state.clone(),
-            format!("Enter master password for {}", name),
-        )?;
+        let receiver = Self::add_password_prompt(state.clone(), format!("Enter master password"))?;
 
         let password = receiver.recv()?;
         let receiver =
@@ -181,10 +191,7 @@ impl State {
     }
 
     pub async fn remove(state: Arc<State>, name: String) -> Result<(), GuiError> {
-        let receiver = Self::add_password_prompt(
-            state.clone(),
-            format!("Enter master password for {}", name),
-        )?;
+        let receiver = Self::add_password_prompt(state.clone(), format!("Enter master password"))?;
         let password = receiver.recv()?;
 
         let mut vault = state.vault.lock()?;
@@ -198,10 +205,7 @@ impl State {
     }
 
     pub async fn get(state: Arc<State>, name: String) -> Result<(), GuiError> {
-        let receiver = Self::add_password_prompt(
-            state.clone(),
-            format!("Enter master password for {}", name),
-        )?;
+        let receiver = Self::add_password_prompt(state.clone(), format!("Enter master password"))?;
         let password = receiver.recv()?;
 
         let vault = state.vault.lock()?;
@@ -216,7 +220,10 @@ impl State {
         let result = match str::from_utf8(result.as_ref()) {
             Ok(result) => result,
             Err(error) => {
-                panic!("Invalid UTF-8 sequence: {}", error)
+                return Err(GuiError::Utf8Fail(format!(
+                    "Invalid UTF-8 sequence: {}",
+                    error
+                )))
             }
         };
 

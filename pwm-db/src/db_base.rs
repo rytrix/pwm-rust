@@ -23,7 +23,7 @@ impl std::fmt::Display for DatabaseError {
             Self::AlreadyExists => f.write_str("Already exists"),
             Self::FailedHash(msg) => f.write_fmt(std::format_args!("Failed hash: {}", msg)),
             Self::FailedAes(msg) => {
-                f.write_fmt(std::format_args!("Failed aes encryption: {}", msg))
+                f.write_fmt(std::format_args!("{}", msg))
             }
             Self::LockError => f.write_str("Failed to get mutex lock on db"),
             Self::InvalidPassword => f.write_str("Invalid password provided"),
