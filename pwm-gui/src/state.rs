@@ -72,13 +72,7 @@ impl State {
         Ok(())
     }
 
-    pub async fn save_vault_to_file(state: Arc<State>, path: &str) -> Result<(), GuiError> {
-        let receiver = Self::add_password_prompt(
-            state.clone(),
-            String::from("Enter master password to save vault"),
-        )?;
-
-        let password = receiver.recv()?;
+    pub async fn save_vault_to_file(state: Arc<State>, path: &str, password: &[u8]) -> Result<(), GuiError> {
         let mut vault = state.vault.lock()?;
         let vault = match &mut *vault {
             Some(vault) => vault,
@@ -87,7 +81,7 @@ impl State {
 
         vault.name_buffer = get_file_name(Path::new(path).to_path_buf());
 
-        vault.serialize_to_file(&path, password.as_bytes())?;
+        vault.serialize_to_file(&path, password)?;
         Ok(())
     }
 

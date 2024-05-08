@@ -180,7 +180,7 @@ impl Gui {
         file
     }
 
-    fn save_file_dialog(state: Arc<State>) -> Option<PathBuf> {
+    pub fn save_file_dialog(state: Arc<State>) -> Option<PathBuf> {
         let dialog = rfd::FileDialog::new();
 
         let mut dialog = match state.vault.lock() {
@@ -232,6 +232,24 @@ impl Gui {
     }
 
     async fn file_save(state: Arc<State>) {
+        let get_password = |state: Arc<State>| -> Result<Zeroizing<String>, GuiError> {
+            let receiver = State::add_password_prompt(
+                state.clone(),
+                String::from("Enter master password to save vault"),
+            )?;
+            let password = receiver.recv()?;
+
+            Ok(password)
+        };
+
+        let password = match get_password(state.clone()) {
+            Ok(password) => password,
+            Err(error) => {
+                GuiError::display_error_or_print(state.clone(), error.to_string());
+                return;
+            }
+        };
+
         let path = match state.clone().prev_file.lock() {
             Ok(path) => {
                 if let Some(path) = &*path {
@@ -250,18 +268,44 @@ impl Gui {
             }
         };
 
-        if let Err(error) = State::save_vault_to_file(state.clone(), path.as_str()).await {
+        if let Err(error) =
+            State::save_vault_to_file(state.clone(), path.as_str(), password.as_bytes()).await
+        {
             GuiError::display_error_or_print(state, error.to_string());
         }
     }
 
     async fn file_save_as(state: Arc<State>) {
+        let get_password = |state: Arc<State>| -> Result<Zeroizing<String>, GuiError> {
+            let receiver = State::add_password_prompt(
+                state.clone(),
+                String::from("Enter master password to save vault"),
+            )?;
+            let password = receiver.recv()?;
+
+            Ok(password)
+        };
+
+        let password = match get_password(state.clone()) {
+            Ok(password) => password,
+            Err(error) => {
+                GuiError::display_error_or_print(state.clone(), error.to_string());
+                return;
+            }
+        };
+
         let path = match Self::save_file_dialog(state.clone()) {
             Some(path) => path,
             None => return,
         };
 
-        match State::save_vault_to_file(state.clone(), path.display().to_string().as_str()).await {
+        match State::save_vault_to_file(
+            state.clone(),
+            path.display().to_string().as_str(),
+            password.as_bytes(),
+        )
+        .await
+        {
             Ok(()) => (),
             Err(error) => {
                 GuiError::display_error_or_print(state, error.to_string());
