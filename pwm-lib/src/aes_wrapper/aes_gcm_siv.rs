@@ -7,7 +7,7 @@ use super::{AesError, AesResult};
 
 impl From<aes_gcm::Error> for AesError {
     fn from(_value: aes_gcm::Error) -> Self {
-        Self::new("failed AES, invalid key")
+        Self::new("Failed AES, invalid key")
     }
 }
 
