@@ -1,11 +1,52 @@
-use aes_gcm::{
-    aead::{Aead, AeadCore, KeyInit},
-    Aes256Gcm, Key,
-};
+use zeroize::Zeroize;
 use serde::{Deserialize, Serialize};
-use zeroize::{Zeroize, Zeroizing};
 
 use crate::hash::HashResult;
+
+#[cfg(not(feature = "use-aes-gcm-siv"))]
+mod aes_gcm;
+#[cfg(feature = "use-aes-gcm-siv")]
+mod aes_gcm_siv;
+
+pub fn aes_gcm_encrypt(
+    hash_result: &HashResult,
+    plaintext: &[u8],
+) -> Result<AesResult, AesError> {
+    #[cfg(feature = "use-aes-gcm-siv")]
+    let result = aes_gcm_siv::aes_gcm_encrypt(hash_result, plaintext)?;
+    #[cfg(not(feature = "use-aes-gcm-siv"))]
+    let result = aes_gcm::aes_gcm_encrypt(hash_result, plaintext)?;
+    Ok(result)
+}
+
+pub fn aes_gcm_decrypt(key: &[u8], ciphertext: &AesResult) -> Result<AesResult, AesError> {
+    #[cfg(feature = "use-aes-gcm-siv")]
+    let result = aes_gcm_siv::aes_gcm_decrypt(key, ciphertext)?;
+    #[cfg(not(feature = "use-aes-gcm-siv"))]
+    let result = aes_gcm::aes_gcm_decrypt(key, ciphertext)?;
+    Ok(result)
+}
+
+#[derive(Debug)]
+pub struct AesError {
+    error: String,
+}
+
+impl AesError {
+    pub fn new(msg: impl Into<String>) -> Self {
+        Self {
+            error: msg.into(),
+        }
+    }
+}
+
+impl std::fmt::Display for AesError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.error.as_ref())
+    }
+}
+
+impl std::error::Error for AesError {}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AesResult {
@@ -50,42 +91,6 @@ impl Drop for AesResult {
     fn drop(&mut self) {
         self.zeroize();
     }
-}
-
-pub fn random_key() -> zeroize::Zeroizing<[u8; 32]> {
-    let key = Aes256Gcm::generate_key(aead::OsRng);
-    return Zeroizing::new(key.into());
-}
-
-// Salt is appended to the end of the cipher
-pub fn aes_gcm_encrypt(
-    hash_result: &HashResult,
-    plaintext: &[u8],
-) -> Result<AesResult, aes_gcm::Error> {
-    let key = Key::<Aes256Gcm>::from_slice(hash_result.get_hash());
-
-    let cipher = Aes256Gcm::new(&key);
-
-    // TODO if doing absurd number of random numbers over 4 million consider siv
-    let nonce = Aes256Gcm::generate_nonce(&mut aead::OsRng); // 96-bits; unique per message
-    let mut ciphertext = cipher.encrypt(&nonce, plaintext)?;
-    ciphertext.extend_from_slice(nonce.as_slice());
-    ciphertext.extend_from_slice(hash_result.get_salt());
-
-    return Ok(AesResult { data: ciphertext });
-}
-
-pub fn aes_gcm_decrypt(key: &[u8], ciphertext: &AesResult) -> Result<AesResult, aes_gcm::Error> {
-    let key = Key::<Aes256Gcm>::from_slice(key);
-
-    let ciphertext = ciphertext.get_crypt_slice();
-
-    let cipher = Aes256Gcm::new(&key);
-    let nonce = &ciphertext[ciphertext.len() - 12..];
-
-    let plaintext = cipher.decrypt(nonce.into(), &ciphertext[..ciphertext.len() - 12])?;
-
-    return Ok(AesResult { data: plaintext });
 }
 
 #[cfg(test)]
