@@ -17,4 +17,4 @@ path = "../pwm-lib"
 
 [dependencies.pwm-db]
 path = "../pwm-db"
-features = ["keep-hash"]
+features = []
