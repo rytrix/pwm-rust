@@ -11,7 +11,7 @@ use crate::gui::get_file_name;
 
 pub struct Vault {
     db: DatabaseEncrypted,
-    changed: bool,
+    pub changed: bool,
     pub name_buffer: String,
     pub insert_buffer: String,
 
@@ -124,9 +124,10 @@ impl Vault {
         Ok(self.prev_list.clone())
     }
 
-    pub fn serialize_to_file(&self, file: &str, password: &[u8]) -> Result<(), DatabaseError> {
+    pub fn serialize_to_file(&mut self, file: &str, password: &[u8]) -> Result<(), DatabaseError> {
         let ciphertext = self.db.serialize_encrypted(password)?;
         std::fs::write(file, ciphertext.as_ref())?;
+        self.changed = false;
 
         Ok(())
     }

@@ -6,7 +6,7 @@ use std::{
     sync::{mpsc::RecvError, Arc, PoisonError},
 };
 
-use eframe::egui;
+use eframe::egui::{self, Layout, Vec2};
 use log::{error, info, warn};
 
 use pwm_db::db_base::DatabaseError;
@@ -74,6 +74,8 @@ impl From<RecvError> for GuiError {
 pub struct Gui {
     scale: f32,
     update_scale: bool,
+    show_confirmation_dialog: bool,
+    allowed_to_close: bool,
     state: Arc<State>,
 }
 
@@ -84,14 +86,83 @@ impl Default for Gui {
         Self {
             scale: GUI_SCALE,
             update_scale: true,
+            show_confirmation_dialog: false,
+            allowed_to_close: false,
             state: Arc::new(State::default()),
         }
     }
 }
 
+fn was_vault_modified(state: Arc<State>) -> bool {
+    let vault = match state.vault.lock() {
+        Ok(vault) => vault,
+        Err(error) => {
+            error!("Failed to lock mutex: {}", error.to_string());
+            return true;
+        }
+    };
+    if let Some(vault) = &*vault {
+        if vault.changed {
+            return true;
+        }
+    }
+
+    false
+}
+
 impl eframe::App for Gui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
+            if ctx.input(|i| i.viewport().close_requested()) {
+                if self.allowed_to_close {
+                    // do nothing - we will close
+                } else {
+                    if was_vault_modified(self.state.clone()) {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+                        self.show_confirmation_dialog = true;
+                    }
+                }
+            }
+
+            if self.show_confirmation_dialog {
+                egui::Window::new("")
+                    .collapsible(false)
+                    .auto_sized()
+                    .resizable(false)
+                    .title_bar(false)
+                    .show(ctx, |ui| {
+                        ui.allocate_ui_with_layout(
+                            egui::Vec2 { x: 150.0, y: 50.0 },
+                            Layout::top_down(egui::Align::Center),
+                            |ui| {
+                                ui.label("Vault has been modified");
+                                ui.label("Exit anyways?");
+
+                                ui.columns(2, |columns| {
+                                    if columns[0]
+                                        .add_sized(Vec2::new(15.0, 15.0), egui::Button::new("Yes"))
+                                        .clicked()
+                                    {
+                                        self.show_confirmation_dialog = false;
+                                        self.allowed_to_close = true;
+                                        columns[0]
+                                            .ctx()
+                                            .send_viewport_cmd(egui::ViewportCommand::Close);
+                                    }
+
+                                    if columns[1]
+                                        .add_sized(Vec2::new(15.0, 15.0), egui::Button::new("No"))
+                                        .clicked()
+                                    {
+                                        self.show_confirmation_dialog = false;
+                                        self.allowed_to_close = false;
+                                    }
+                                });
+                            },
+                        );
+                    });
+            }
+
             if self.update_scale {
                 ctx.set_pixels_per_point(self.scale);
             }
