@@ -161,10 +161,10 @@ impl State {
         builder
             .header(20.0, |mut header| {
                 header.col(|ui| {
-                    ui.strong("Key");
+                    ui.strong("Username");
                 });
                 header.col(|ui| {
-                    ui.strong("Data");
+                    ui.strong("Password");
                 });
             })
             .body(|mut body| {
@@ -182,6 +182,7 @@ impl State {
                             if ui.button("Delete").clicked() {
                                 tokio::spawn(Self::remove(state.clone(), name.clone()));
                             }
+                            ui.add_space(4.0)
                         });
                     });
                 }
