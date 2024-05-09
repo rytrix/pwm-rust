@@ -72,13 +72,17 @@ impl From<RecvError> for GuiError {
 
 pub struct Gui {
     scale: f32,
+    update_scale: bool,
     state: Arc<State>,
 }
+
+const GUI_SCALE: f32 = 1.8;
 
 impl Default for Gui {
     fn default() -> Self {
         Self {
-            scale: 1.8,
+            scale: GUI_SCALE,
+            update_scale: true,
             state: Arc::new(State::default()),
         }
     }
@@ -87,7 +91,9 @@ impl Default for Gui {
 impl eframe::App for Gui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ctx.set_pixels_per_point(self.scale);
+            if self.update_scale {
+                ctx.set_pixels_per_point(self.scale);
+            }
 
             ui.output_mut(|o| {
                 if let Ok(mut clipboard) = self.state.clipboard_string.lock() {
@@ -123,7 +129,14 @@ impl eframe::App for Gui {
                 });
 
                 ui.menu_button("Options", |ui| {
-                    ui.add(egui::Slider::new(&mut self.scale, 1.0..=3.0).text("UI Scale"));
+                    if !ui
+                        .add(egui::Slider::new(&mut self.scale, 1.0..=3.0).text("UI Scale"))
+                        .dragged()
+                    {
+                        self.update_scale = true;
+                    } else {
+                        self.update_scale = false;
+                    };
                 });
 
                 ui.menu_button("Encryption", |ui| {
