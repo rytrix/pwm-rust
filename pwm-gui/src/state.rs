@@ -160,9 +160,6 @@ impl State {
 
         builder
             .header(20.0, |mut header| {
-                // header.col(|ui| {
-                //     ui.strong("Row");
-                // });
                 header.col(|ui| {
                     ui.strong("Key");
                 });
@@ -175,10 +172,6 @@ impl State {
                     let row_height = 30.0;
                     body.row(row_height, |mut row| {
                         let name = &list[row_index];
-
-                        // row.col(|ui| {
-                        //     ui.label(row_index.to_string());
-                        // });
                         row.col(|ui| {
                             ui.label(format!("{}", name.clone()));
                         });

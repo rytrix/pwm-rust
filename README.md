@@ -1,5 +1,5 @@
 # pwm
-A password manager 4 passwords o_0
+A password manager 4 passwords
 
 # Bugs
 Error message before file/password prompt if no vault is open
@@ -10,5 +10,3 @@ Keep hash is one giant salt store (lets maybe not ever keep hash since I don't u
 
 # Todo
 Popup when vault has been modified and the app is closed
-Random password generation
-
