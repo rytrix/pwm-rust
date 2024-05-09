@@ -119,6 +119,11 @@ impl State {
                         vault.insert_buffer.clear();
                     }
                 });
+                ui.horizontal(|ui| {
+                    if ui.button("Import").clicked() {
+                        tokio::spawn(Self::insert_from_csv(state.clone()));
+                    }
+                });
             });
         });
 
@@ -187,6 +192,27 @@ impl State {
         };
 
         vault.insert(&name, data.as_bytes(), password.as_bytes())?;
+        Ok(())
+    }
+
+    pub async fn insert_from_csv(state: Arc<State>) -> Result<(), GuiError> {
+        let receiver = Self::add_password_prompt(state.clone(), format!("Enter master password"))?;
+        let password = receiver.recv()?;
+
+        let file = match Gui::open_file_dialog(state.clone()) {
+            Some(file) => file,
+            None => {
+                return Err(GuiError::NoFile)
+            }
+        };
+
+        let mut vault = state.vault.lock()?;
+        let vault = match &mut *vault {
+            Some(vault) => vault,
+            None => return Err(GuiError::NoVault),
+        };
+
+        vault.insert_from_csv(file.display().to_string().as_str(), password.as_bytes())?;
         Ok(())
     }
 

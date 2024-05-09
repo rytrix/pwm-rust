@@ -14,6 +14,7 @@ pub enum DatabaseError {
     OutputError(String),
     FailedSerialize,
     FailedDeserialize,
+    CsvError(String),
 }
 
 impl std::fmt::Display for DatabaseError {
@@ -22,23 +23,29 @@ impl std::fmt::Display for DatabaseError {
             Self::NotFound => f.write_str("Not found"),
             Self::AlreadyExists => f.write_str("Already exists"),
             Self::FailedHash(msg) => f.write_fmt(std::format_args!("Failed hash: {}", msg)),
-            Self::FailedAes(msg) => {
-                f.write_fmt(std::format_args!("{}", msg))
-            }
+            Self::FailedAes(msg) => f.write_fmt(std::format_args!("{}", msg)),
             Self::LockError => f.write_str("Failed to get mutex lock on db"),
             Self::InvalidPassword => f.write_str("Invalid password provided"),
             Self::InputError(msg) => f.write_fmt(std::format_args!("Input error: {}", msg)),
             Self::OutputError(msg) => f.write_fmt(std::format_args!("Output error: {}", msg)),
             Self::FailedSerialize => f.write_str("Failed to serialize"),
             Self::FailedDeserialize => f.write_str("Failed to deserialize"),
+            Self::CsvError(msg) => f.write_fmt(std::format_args!("Csv error: {}", msg)),
         };
     }
 }
 
 impl std::error::Error for DatabaseError {}
 
+impl From<csv::Error> for DatabaseError {
+    fn from(value: csv::Error) -> Self {
+        Self::CsvError(value.to_string())
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Database<V> {
+pub struct Database<V> 
+{
     data: BTreeMap<String, V>,
 }
 

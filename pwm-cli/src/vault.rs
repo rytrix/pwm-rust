@@ -70,6 +70,18 @@ impl Vault {
                             println!("Expected a key");
                         }
                     }
+                    "import" => {
+                        if let Some(name) = itr.next() {
+                            match self.import(name) {
+                                Ok(()) => {},
+                                Err(error) => {
+                                    println!("Failed to import: {}", error.to_string());
+                                }
+                            }
+                        } else {
+                            println!("Expected a file");
+                        }
+                    }
                     "remove" | "rm" | "r" => {
                         if let Some(data) = itr.next() {
                             match self.remove(data) {
@@ -216,12 +228,21 @@ impl Vault {
         Ok(())
     }
 
+    fn import(&mut self, file: &str) -> Result<(), DatabaseError> {
+        let password = match request_password("Enter the master password") {
+            Ok(password) => password,
+            Err(error) => return Err(DatabaseError::InputError(error.to_string())),
+        };
+        self.db.insert_from_csv(file, password.as_bytes())?;
+
+        Ok(())
+    }
+
     fn remove(&mut self, name: &str) -> Result<(), DatabaseError> {
         let password = match request_password("Enter the master password") {
             Ok(password) => password,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
-
         self.db.remove(name, password.as_bytes())?;
 
         self.changed = true;
@@ -234,7 +255,6 @@ impl Vault {
             Ok(password) => password,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
-
         self.db.get(name, password.as_bytes())
     }
 
@@ -270,6 +290,7 @@ impl Vault {
             "Vault:
     help                - this menu 
     insert <key> <data> - insert an element 
+    import <file>       - import key/value pairs from csv
     remove <key>        - remove an element
     get    <key>        - retrieve an element
     save   <file>       - save to a file

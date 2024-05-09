@@ -12,3 +12,4 @@ keep-hash = []
 pwm-lib = { path = "../pwm-lib" }
 serde = { version = "1.0.198", features = ["derive"] }
 bincode = "1.3.3" 
+csv = "1.3.0"

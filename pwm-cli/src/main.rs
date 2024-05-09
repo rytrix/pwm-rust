@@ -1,7 +1,10 @@
 mod password;
 mod vault;
 
-use crate::{password::{password_confirmation, request_password}, vault::Vault};
+use crate::{
+    password::{password_confirmation, request_password},
+    vault::Vault,
+};
 use pwm_lib::crypt_file::{decrypt_file, encrypt_file};
 
 use clap::{ArgAction, Parser};

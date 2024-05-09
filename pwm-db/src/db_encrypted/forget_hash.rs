@@ -10,6 +10,7 @@ pub trait DatabaseInterface {
         password: &[u8],
     ) -> Result<DatabaseEncrypted, DatabaseError>;
     fn insert(&mut self, name: &str, data: &[u8], password: &[u8]) -> Result<(), DatabaseError>;
+    fn insert_from_csv(&mut self, file: &str, password: &[u8]) -> Result<(), DatabaseError>;
     fn remove(&mut self, name: &str, password: &[u8]) -> Result<(), DatabaseError>;
     fn get(&self, name: &str, password: &[u8]) -> Result<AesResult, DatabaseError>;
     fn serialize_encrypted(&self, password: &[u8]) -> Result<AesResult, DatabaseError>;
@@ -37,6 +38,33 @@ impl DatabaseInterface for DatabaseEncrypted {
         };
 
         self.db.insert(name, data)?;
+
+        Ok(())
+    }
+
+    fn insert_from_csv(&mut self, file: &str, password: &[u8]) -> Result<(), DatabaseError> {
+        if !self.hash_password_and_compare(password) {
+            return Err(DatabaseError::InvalidPassword);
+        }
+
+        let hash = Self::hash_password_argon2(password)?;
+
+        let mut rdr = csv::Reader::from_path(file)?;
+        for record in rdr.records() {
+            match record {
+                Ok(record) => {
+                    if let (Some(key), Some(data)) = (record.get(0), record.get(1)) {
+                        let data = match aes_gcm_encrypt(&hash, data.as_bytes()) {
+                            Ok(encrypted) => encrypted,
+                            Err(error) => return Err(DatabaseError::FailedAes(error.to_string())),
+                        };
+                        self.db.insert(key, data)?;
+                    }
+                    // println!("record {:?} {:?}", record.get(0), record.get(1));
+                }
+                Err(_) => {}
+            };
+        }
 
         Ok(())
     }

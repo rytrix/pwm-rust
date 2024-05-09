@@ -58,6 +58,11 @@ impl Vault {
         self.db.insert(name, data, password)
     }
 
+    pub fn insert_from_csv(&mut self, file: &str, password: &[u8]) -> Result<(), DatabaseError> {
+        self.changed = true;
+        self.db.insert_from_csv(file, password)
+    }
+
     pub fn remove(&mut self, name: &String, password: &[u8]) -> Result<(), DatabaseError> {
         self.changed = true;
         self.db.remove(name, password)
