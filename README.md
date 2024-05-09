@@ -9,4 +9,3 @@ Can't close if file manager is open
 Keep hash is one giant salt store (lets maybe not ever keep hash since I don't use it in the actual program)
 
 # Todo
-Popup when vault has been modified and the app is closed
