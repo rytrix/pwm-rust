@@ -20,6 +20,7 @@ pub struct State {
     pub password: Mutex<Vec<(String, Zeroizing<String>, Sender<Zeroizing<String>>)>>,
     pub vault: Mutex<Option<Vault>>,
     pub clipboard_string: Mutex<Option<Zeroizing<String>>>,
+    pub search_string: Mutex<String>,
 }
 
 impl Default for State {
@@ -30,6 +31,7 @@ impl Default for State {
             password: Mutex::new(Vec::new()),
             vault: Mutex::new(None),
             clipboard_string: Mutex::new(None),
+            search_string: Mutex::new(String::new()),
         }
     }
 }
@@ -99,11 +101,24 @@ impl State {
             None => return Ok(()),
         };
 
-        list = vault.list()?;
+        list = vault.list_fuzzy_match(state.search_string.lock()?.as_str())?;
         name = vault.name_buffer.clone();
 
         ui.horizontal(|ui| {
             ui.heading(name);
+            ui.menu_button("Search", |ui| {
+                let mut buffer = match state.search_string.lock() {
+                    Ok(buffer) => buffer,
+                    Err(error) => {
+                        GuiError::display_error_or_print(state.clone(), error.to_string());
+                        return ()
+                    }
+                };
+                let _response = ui.add_sized(
+                    [100.0, 20.0],
+                    egui::TextEdit::singleline(&mut *buffer),
+                );
+            });
             ui.menu_button("Insert", |ui| {
                 ui.horizontal(|ui| {
                     let response = ui.add_sized(
