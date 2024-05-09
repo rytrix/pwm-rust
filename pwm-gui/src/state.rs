@@ -52,7 +52,7 @@ impl State {
     }
 
     pub async fn open_vault_from_file(state: Arc<State>) -> Result<(), GuiError> {
-        let file = match Gui::open_file_dialog(state.clone()) {
+        let file = match Gui::open_file_dialog(state.clone(), true) {
             Some(file) => file.display().to_string(),
             None => return Err(GuiError::NoFile),
         };
@@ -119,15 +119,15 @@ impl State {
                         vault.insert_buffer.clear();
                     }
                 });
-                ui.horizontal(|ui| {
-                    if ui.button("Import").clicked() {
-                        tokio::spawn(Self::insert_from_csv(state.clone()));
-                    }
+            });
+            ui.menu_button("Csv", |ui| {
+                if ui.button("Import").clicked() {
+                    tokio::spawn(Self::insert_from_csv(state.clone()));
+                }
 
-                    if ui.button("Export").clicked() {
-                        tokio::spawn(Self::export_to_csv(state.clone()));
-                    }
-                });
+                if ui.button("Export").clicked() {
+                    tokio::spawn(Self::export_to_csv(state.clone()));
+                }
             });
         });
 
@@ -137,7 +137,7 @@ impl State {
             .striped(true)
             .resizable(true)
             .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-            .column(Column::auto())
+            .column(Column::remainder())
             .column(Column::auto())
             .min_scrolled_height(0.0);
 
@@ -203,7 +203,7 @@ impl State {
         let receiver = Self::add_password_prompt(state.clone(), format!("Enter master password"))?;
         let password = receiver.recv()?;
 
-        let file = match Gui::open_file_dialog(state.clone()) {
+        let file = match Gui::open_file_dialog(state.clone(), false) {
             Some(file) => file,
             None => return Err(GuiError::NoFile),
         };
@@ -222,7 +222,7 @@ impl State {
         let receiver = Self::add_password_prompt(state.clone(), format!("Enter master password"))?;
         let password = receiver.recv()?;
 
-        let file = match Gui::open_file_dialog(state.clone()) {
+        let file = match Gui::save_file_dialog(state.clone(), false) {
             Some(file) => file,
             None => return Err(GuiError::NoFile),
         };
@@ -303,7 +303,7 @@ impl State {
 
         for (prompt, password, sender) in passwords.iter_mut() {
             ui.horizontal(|ui| {
-                ui.horizontal(|ui| {
+                ui.vertical(|ui| {
                     ui.label(prompt.as_str());
                     let (remove, _) = password_ui(ui, (password, sender));
                     if remove {
