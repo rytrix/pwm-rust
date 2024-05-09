@@ -234,6 +234,7 @@ impl Vault {
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
         self.db.insert_from_csv(file, password.as_bytes())?;
+        self.changed = true;
 
         Ok(())
     }
