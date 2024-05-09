@@ -148,6 +148,7 @@ impl DatabaseEncrypted {
 }
 
 #[cfg(feature = "keep-hash")]
+#[deprecated(since="0.0.1", note="Please don't ever use this it uses the same salt for EVERYTHING!")]
 pub mod keep_hash;
 
 pub mod forget_hash;
