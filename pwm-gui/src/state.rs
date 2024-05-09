@@ -21,6 +21,7 @@ pub struct State {
     pub vault: Mutex<Option<Vault>>,
     pub clipboard_string: Mutex<Option<Zeroizing<String>>>,
     pub search_string: Mutex<String>,
+    pub password_length: Mutex<String>,
 }
 
 impl Default for State {
@@ -32,6 +33,7 @@ impl Default for State {
             vault: Mutex::new(None),
             clipboard_string: Mutex::new(None),
             search_string: Mutex::new(String::new()),
+            password_length: Mutex::new(String::new()),
         }
     }
 }

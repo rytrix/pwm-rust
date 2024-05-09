@@ -12,6 +12,7 @@ use log::{error, info, warn};
 use pwm_db::db_base::DatabaseError;
 use pwm_lib::{
     crypt_file::{decrypt_file, encrypt_file},
+    random::random_password,
     zeroize::Zeroizing,
 };
 
@@ -76,7 +77,7 @@ pub struct Gui {
     state: Arc<State>,
 }
 
-const GUI_SCALE: f32 = 1.8;
+const GUI_SCALE: f32 = 2.0;
 
 impl Default for Gui {
     fn default() -> Self {
@@ -145,6 +146,23 @@ impl eframe::App for Gui {
                     }
                     if ui.button("Decrypt File").clicked() {
                         tokio::spawn(Self::decrypt_file(self.state.clone()));
+                    }
+                    match self.state.password_length.lock() {
+                        Ok(mut password_length) => {
+                            ui.menu_button("Password Generation", |ui| {
+                                ui.label("Random Length");
+                                let _response = ui.add_sized(
+                                    [100.0, 20.0],
+                                    egui::TextEdit::singleline(&mut *password_length),
+                                );
+                                if ui.button("Generate").clicked() {
+                                    tokio::spawn(Self::random_password(self.state.clone()));
+                                }
+                            });
+                        }
+                        Err(error) => {
+                            GuiError::display_error_or_print(self.state.clone(), error.to_string());
+                        }
                     }
                 });
             });
@@ -375,6 +393,33 @@ impl Gui {
                     );
                 }
             };
+        }
+    }
+
+    async fn random_password(state: Arc<State>) {
+        let mut clipboard = match state.clipboard_string.lock() {
+            Ok(clipboard) => clipboard,
+            Err(error) => {
+                GuiError::display_error_or_print(state.clone(), error.to_string());
+                return;
+            }
+        };
+
+        match state.password_length.lock() {
+            Ok(password_length) => {
+                let length: usize = match password_length.parse() {
+                    Ok(length) => length,
+                    Err(error) => {
+                        GuiError::display_error_or_print(state.clone(), error.to_string());
+                        return;
+                    }
+                };
+
+                *clipboard = Some(Zeroizing::new(random_password(length)));
+            }
+            Err(error) => {
+                GuiError::display_error_or_print(state.clone(), error.to_string());
+            }
         }
     }
 }
