@@ -135,6 +135,8 @@ impl eframe::App for Gui {
                     }
                 });
             });
+
+            ui.separator();
             // Top Bar End
 
             if let Err(error) = State::display_password_prompts(self.state.clone(), ui) {

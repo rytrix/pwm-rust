@@ -72,7 +72,11 @@ impl State {
         Ok(())
     }
 
-    pub async fn save_vault_to_file(state: Arc<State>, path: &str, password: &[u8]) -> Result<(), GuiError> {
+    pub async fn save_vault_to_file(
+        state: Arc<State>,
+        path: &str,
+        password: &[u8],
+    ) -> Result<(), GuiError> {
         let mut vault = state.vault.lock()?;
         let vault = match &mut *vault {
             Some(vault) => vault,
@@ -110,13 +114,15 @@ impl State {
                         tokio::spawn(Self::insert(state.clone(), vault.insert_buffer.clone()));
                         vault.insert_buffer.clear();
                     }
-                    if ui.button("Insert").clicked() {
+                    if ui.button("Enter").clicked() {
                         tokio::spawn(Self::insert(state.clone(), vault.insert_buffer.clone()));
                         vault.insert_buffer.clear();
                     }
                 });
             });
         });
+
+        ui.separator();
 
         let builder = TableBuilder::new(ui)
             .striped(true)
@@ -259,8 +265,6 @@ impl State {
             return Ok(());
         }
 
-        ui.separator();
-
         for (prompt, password, sender) in passwords.iter_mut() {
             ui.horizontal(|ui| {
                 ui.horizontal(|ui| {
@@ -302,8 +306,6 @@ impl State {
         if errors.len() <= 0 {
             return Ok(());
         }
-
-        ui.separator();
 
         for (error, timer) in errors.iter() {
             if !timer.is_complete() {
