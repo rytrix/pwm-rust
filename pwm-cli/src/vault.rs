@@ -315,6 +315,7 @@ impl Vault {
     help                - this menu 
     insert <key> <data> - insert an element 
     import <file>       - import key/value pairs from csv
+    export <file>       - export key/value pairs to csv
     remove <key>        - remove an element
     get    <key>        - retrieve an element
     save   <file>       - save to a file
