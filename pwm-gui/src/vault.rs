@@ -63,6 +63,10 @@ impl Vault {
         self.db.insert_from_csv(file, password)
     }
 
+    pub fn export_to_csv(&mut self, file: &str, password: &[u8]) -> Result<(), DatabaseError> {
+        self.db.export_to_csv(file, password)
+    }
+
     pub fn remove(&mut self, name: &String, password: &[u8]) -> Result<(), DatabaseError> {
         self.changed = true;
         self.db.remove(name, password)
@@ -78,10 +82,7 @@ impl Vault {
 
     pub fn serialize_to_file(&self, file: &str, password: &[u8]) -> Result<(), DatabaseError> {
         let ciphertext = self.db.serialize_encrypted(password)?;
-        match std::fs::write(file, ciphertext.as_ref()) {
-            Ok(()) => (),
-            Err(error) => return Err(DatabaseError::OutputError(error.to_string())),
-        };
+        std::fs::write(file, ciphertext.as_ref())?;
 
         Ok(())
     }

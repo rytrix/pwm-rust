@@ -1,5 +1,6 @@
 use std::collections::btree_map::BTreeMap;
 
+use pwm_lib::aes_wrapper::AesError;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
@@ -14,7 +15,8 @@ pub enum DatabaseError {
     OutputError(String),
     FailedSerialize,
     FailedDeserialize,
-    CsvError(String),
+    InvalidCsv(String),
+    IoError(String),
 }
 
 impl std::fmt::Display for DatabaseError {
@@ -30,7 +32,8 @@ impl std::fmt::Display for DatabaseError {
             Self::OutputError(msg) => f.write_fmt(std::format_args!("Output error: {}", msg)),
             Self::FailedSerialize => f.write_str("Failed to serialize"),
             Self::FailedDeserialize => f.write_str("Failed to deserialize"),
-            Self::CsvError(msg) => f.write_fmt(std::format_args!("Csv error: {}", msg)),
+            Self::InvalidCsv(msg) => f.write_fmt(std::format_args!("Csv error: {}", msg)),
+            Self::IoError(msg) => f.write_fmt(std::format_args!("Io error: {}", msg)),
         };
     }
 }
@@ -39,7 +42,19 @@ impl std::error::Error for DatabaseError {}
 
 impl From<csv::Error> for DatabaseError {
     fn from(value: csv::Error) -> Self {
-        Self::CsvError(value.to_string())
+        Self::InvalidCsv(value.to_string())
+    }
+}
+
+impl From<AesError> for DatabaseError {
+    fn from(value: AesError) -> Self {
+        Self::FailedAes(value.to_string())
+    }
+}
+
+impl From<std::io::Error> for DatabaseError {
+    fn from(value: std::io::Error) -> Self {
+        Self::IoError(value.to_string())
     }
 }
 

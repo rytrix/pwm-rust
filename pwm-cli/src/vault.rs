@@ -70,12 +70,24 @@ impl Vault {
                             println!("Expected a key");
                         }
                     }
-                    "import" => {
+                    "import" | "im" => {
                         if let Some(name) = itr.next() {
                             match self.import(name) {
                                 Ok(()) => {},
                                 Err(error) => {
                                     println!("Failed to import: {}", error.to_string());
+                                }
+                            }
+                        } else {
+                            println!("Expected a file");
+                        }
+                    }
+                    "export" | "ex" => {
+                        if let Some(name) = itr.next() {
+                            match self.export(name) {
+                                Ok(()) => {},
+                                Err(error) => {
+                                    println!("Failed to export: {}", error.to_string());
                                 }
                             }
                         } else {
@@ -234,6 +246,17 @@ impl Vault {
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
         self.db.insert_from_csv(file, password.as_bytes())?;
+        self.changed = true;
+
+        Ok(())
+    }
+
+    fn export(&mut self, file: &str) -> Result<(), DatabaseError> {
+        let password = match request_password("Enter the master password") {
+            Ok(password) => password,
+            Err(error) => return Err(DatabaseError::InputError(error.to_string())),
+        };
+        self.db.export_to_csv(file, password.as_bytes())?;
         self.changed = true;
 
         Ok(())

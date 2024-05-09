@@ -1,4 +1,10 @@
-use pwm_lib::{aes_wrapper::{aes_gcm_decrypt, aes_gcm_encrypt, AesResult}, hash::HashResult};
+// TODO this crate is bad and it needs to be DELETED, convince me otherwise, 
+// you NEED to rehash or you will keep the same salt for everything
+
+use pwm_lib::{
+    aes_wrapper::{aes_gcm_decrypt, aes_gcm_encrypt, AesResult},
+    hash::HashResult,
+};
 
 use crate::db_base::DatabaseError;
 
@@ -20,16 +26,12 @@ impl DatabaseInterface for DatabaseEncrypted {
     fn new_deserialize_encrypted(
         serialized: &AesResult,
         password: &[u8],
-    ) -> Result<(DatabaseEncrypted, HashResult), DatabaseError>
-    {
+    ) -> Result<(DatabaseEncrypted, HashResult), DatabaseError> {
         Self::new_deserialize_encrypted_internal(serialized, password)
     }
-    fn insert(&mut self, name: &str, data: &[u8], hash: &HashResult) -> Result<(), DatabaseError> {
-        let data = match aes_gcm_encrypt(hash, data) {
-            Ok(encrypted) => encrypted,
-            Err(error) => return Err(DatabaseError::FailedAes(error.to_string())),
-        };
 
+    fn insert(&mut self, name: &str, data: &[u8], hash: &HashResult) -> Result<(), DatabaseError> {
+        let data = aes_gcm_encrypt(hash, data)?;
         self.db.insert(name, data)?;
 
         Ok(())
@@ -41,10 +43,7 @@ impl DatabaseInterface for DatabaseEncrypted {
             match record {
                 Ok(record) => {
                     if let (Some(key), Some(data)) = (record.get(0), record.get(1)) {
-                        let data = match aes_gcm_encrypt(&hash, data.as_bytes()) {
-                            Ok(encrypted) => encrypted,
-                            Err(error) => return Err(DatabaseError::FailedAes(error.to_string())),
-                        };
+                        let data = aes_gcm_encrypt(&hash, data.as_bytes())?;
                         self.db.insert(key, data)?;
                     }
                     // println!("record {:?} {:?}", record.get(0), record.get(1));
@@ -65,21 +64,14 @@ impl DatabaseInterface for DatabaseEncrypted {
     fn get(&self, name: &str, hash: &HashResult) -> Result<AesResult, DatabaseError> {
         let ciphertext = self.db.get(name)?;
 
-        let result = match aes_gcm_decrypt(hash.get_hash(), ciphertext) {
-            Ok(encrypted) => encrypted,
-            Err(error) => return Err(DatabaseError::FailedAes(error.to_string())),
-        };
-
+        let result = aes_gcm_decrypt(hash.get_hash(), ciphertext)?;
         Ok(result)
     }
 
     fn serialize_encrypted(&self, hash: &HashResult) -> Result<AesResult, DatabaseError> {
         let data = self.serialize()?;
 
-        let ciphertext = match aes_gcm_encrypt(hash, data.as_slice()) {
-            Ok(ciphertext) => ciphertext,
-            Err(error) => return Err(DatabaseError::FailedAes(error.to_string())),
-        };
+        let ciphertext = aes_gcm_encrypt(hash, data.as_slice())?;
 
         Ok(ciphertext)
     }

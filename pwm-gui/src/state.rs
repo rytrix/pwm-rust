@@ -123,6 +123,10 @@ impl State {
                     if ui.button("Import").clicked() {
                         tokio::spawn(Self::insert_from_csv(state.clone()));
                     }
+
+                    if ui.button("Export").clicked() {
+                        tokio::spawn(Self::export_to_csv(state.clone()));
+                    }
                 });
             });
         });
@@ -201,9 +205,7 @@ impl State {
 
         let file = match Gui::open_file_dialog(state.clone()) {
             Some(file) => file,
-            None => {
-                return Err(GuiError::NoFile)
-            }
+            None => return Err(GuiError::NoFile),
         };
 
         let mut vault = state.vault.lock()?;
@@ -213,6 +215,25 @@ impl State {
         };
 
         vault.insert_from_csv(file.display().to_string().as_str(), password.as_bytes())?;
+        Ok(())
+    }
+
+    pub async fn export_to_csv(state: Arc<State>) -> Result<(), GuiError> {
+        let receiver = Self::add_password_prompt(state.clone(), format!("Enter master password"))?;
+        let password = receiver.recv()?;
+
+        let file = match Gui::open_file_dialog(state.clone()) {
+            Some(file) => file,
+            None => return Err(GuiError::NoFile),
+        };
+
+        let mut vault = state.vault.lock()?;
+        let vault = match &mut *vault {
+            Some(vault) => vault,
+            None => return Err(GuiError::NoVault),
+        };
+
+        vault.export_to_csv(file.display().to_string().as_str(), password.as_bytes())?;
         Ok(())
     }
 
@@ -257,17 +278,6 @@ impl State {
         *string = Some(Zeroizing::new(result.to_string()));
 
         Ok(())
-
-        // use std::str;
-        // let result = match str::from_utf8(result.as_ref()) {
-        //     Ok(result) => result,
-        //     Err(error) => panic!("Invalid UTF-8 sequence: {}", error),
-        // };
-
-        // // TODO clipboard or something
-        // eprintln!("Result: {}", result);
-
-        // Ok(())
     }
 
     pub fn add_password_prompt(
