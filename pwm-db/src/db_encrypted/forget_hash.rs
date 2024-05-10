@@ -4,6 +4,8 @@ use crate::db_base::error::DatabaseError;
 
 use super::DatabaseEncrypted;
 
+use log::warn;
+
 pub trait DatabaseInterface {
     fn new_deserialize_encrypted(
         serialized: &AesResult,
@@ -57,7 +59,12 @@ impl DatabaseInterface for DatabaseEncrypted {
                         let hash = Self::hash_password_argon2(password)?;
 
                         let data = aes_gcm_encrypt(&hash, data.as_bytes())?;
-                        self.db.insert(key, data)?;
+                        match self.db.insert(key, data) {
+                            Ok(()) => (),
+                            Err(error) => {
+                                eprintln!("Failed to import {}", error.to_string());
+                            }
+                        };
                     }
                     // println!("record {:?} {:?}", record.get(0), record.get(1));
                 }
