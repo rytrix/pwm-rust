@@ -181,7 +181,7 @@ impl Gui {
         }
     }
 
-    async fn file_save(state: Arc<State>) {
+    fn file_save_setup(state: Arc<State>) -> Option<Zeroizing<String>> {
         match State::contains_vault(state.clone()) {
             Ok(contains) => {
                 if !contains {
@@ -189,12 +189,12 @@ impl Gui {
                         state.clone(),
                         String::from("No vault opened"),
                     );
-                    return;
+                    return None;
                 }
             }
             Err(error) => {
                 GuiError::display_error_or_print(state.clone(), error.to_string());
-                return;
+                return None;
             }
         }
 
@@ -212,8 +212,17 @@ impl Gui {
             Ok(password) => password,
             Err(error) => {
                 GuiError::display_error_or_print(state.clone(), error.to_string());
-                return;
+                return None;
             }
+        };
+
+        Some(password)
+    }
+
+    async fn file_save(state: Arc<State>) {
+        let password = match Gui::file_save_setup(state.clone()) {
+            Some(password) => password,
+            None => return,
         };
 
         let path = match state.clone().prev_file.lock() {
@@ -242,41 +251,12 @@ impl Gui {
     }
 
     async fn file_save_as(state: Arc<State>) {
-        match State::contains_vault(state.clone()) {
-            Ok(contains) => {
-                if !contains {
-                    GuiError::display_error_or_print(
-                        state.clone(),
-                        String::from("No vault opened"),
-                    );
-                    return;
-                }
-            }
-            Err(error) => {
-                GuiError::display_error_or_print(state.clone(), error.to_string());
-                return;
-            }
-        }
-
-        let get_password = |state: Arc<State>| -> Result<Zeroizing<String>, GuiError> {
-            let receiver = State::add_password_prompt(
-                state.clone(),
-                String::from("Enter master password to save vault"),
-            )?;
-            let password = receiver.recv()?;
-
-            Ok(password)
+        let password = match Gui::file_save_setup(state.clone()) {
+            Some(password) => password,
+            None => return,
         };
 
-        let password = match get_password(state.clone()) {
-            Ok(password) => password,
-            Err(error) => {
-                GuiError::display_error_or_print(state.clone(), error.to_string());
-                return;
-            }
-        };
-
-        let path = match Self::save_file_dialog(state.clone(), true) {
+        let path = match Gui::save_file_dialog(state.clone(), true) {
             Some(path) => path,
             None => return,
         };
@@ -295,7 +275,7 @@ impl Gui {
         }
     }
 
-    async fn crypt_prelude(state: Arc<State>) -> Option<(String, Zeroizing<String>)> {
+    async fn crypt_setup(state: Arc<State>) -> Option<(String, Zeroizing<String>)> {
         let file = Self::open_file_dialog(state.clone(), true);
         if let Some(file_path) = file {
             let file = get_file_name(file_path);
@@ -317,7 +297,7 @@ impl Gui {
     }
 
     async fn encrypt_file(state: Arc<State>) {
-        if let Some((file, password)) = Self::crypt_prelude(state.clone()).await {
+        if let Some((file, password)) = Gui::crypt_setup(state.clone()).await {
             match encrypt_file(file, None, password.as_bytes()) {
                 Ok(()) => (),
                 Err(error) => {
@@ -328,7 +308,7 @@ impl Gui {
     }
 
     async fn decrypt_file(state: Arc<State>) {
-        if let Some((file, password)) = Self::crypt_prelude(state.clone()).await {
+        if let Some((file, password)) = Gui::crypt_setup(state.clone()).await {
             match decrypt_file(file, None, password.as_bytes()) {
                 Ok(()) => (),
                 Err(_error) => {
@@ -372,6 +352,7 @@ impl Gui {
         let vault = match state.vault.lock() {
             Ok(vault) => vault,
             Err(error) => {
+                // TODO better error handling?
                 error!("Failed to lock mutex: {}", error.to_string());
                 return true;
             }
