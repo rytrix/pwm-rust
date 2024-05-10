@@ -207,4 +207,11 @@ impl State {
 
         Ok(())
     }
+
+    pub fn contains_vault(state: Arc<State>) -> Result<bool, GuiError> {
+        if let Some(_vault) = &*state.vault.lock()? {
+            return Ok(true)
+        }
+        Ok(false)
+    }
 }

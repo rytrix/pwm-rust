@@ -182,6 +182,22 @@ impl Gui {
     }
 
     async fn file_save(state: Arc<State>) {
+        match State::contains_vault(state.clone()) {
+            Ok(contains) => {
+                if !contains {
+                    GuiError::display_error_or_print(
+                        state.clone(),
+                        String::from("No vault opened"),
+                    );
+                    return;
+                }
+            }
+            Err(error) => {
+                GuiError::display_error_or_print(state.clone(), error.to_string());
+                return;
+            }
+        }
+
         let get_password = |state: Arc<State>| -> Result<Zeroizing<String>, GuiError> {
             let receiver = State::add_password_prompt(
                 state.clone(),
@@ -226,6 +242,22 @@ impl Gui {
     }
 
     async fn file_save_as(state: Arc<State>) {
+        match State::contains_vault(state.clone()) {
+            Ok(contains) => {
+                if !contains {
+                    GuiError::display_error_or_print(
+                        state.clone(),
+                        String::from("No vault opened"),
+                    );
+                    return;
+                }
+            }
+            Err(error) => {
+                GuiError::display_error_or_print(state.clone(), error.to_string());
+                return;
+            }
+        }
+
         let get_password = |state: Arc<State>| -> Result<Zeroizing<String>, GuiError> {
             let receiver = State::add_password_prompt(
                 state.clone(),
