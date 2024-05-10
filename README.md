@@ -1,5 +1,5 @@
 # pwm
-A password manager 4 passwords
+A password manager
 
 # Bugs
 Error message before file/password prompt if no vault is open
