@@ -36,6 +36,15 @@ impl<V> Database<V> {
         Ok(())
     }
 
+    pub fn rename(&mut self, name: &str, new_name: &str) -> Result<(), DatabaseError> {
+        if let Some(data) = self.data.remove(name) {
+            self.insert(new_name, data)?;
+        } else {
+            return Err(DatabaseError::NotFound)
+        }
+        Ok(())
+    }
+
     pub fn remove(&mut self, name: &str) -> Result<(), DatabaseError> {
         if !self.data.contains_key(name) {
             return Err(DatabaseError::NotFound);

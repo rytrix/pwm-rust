@@ -1,6 +1,8 @@
 pub mod error;
+pub mod prompt;
 
-use crate::{password::password_ui, state::State};
+use crate::gui::error::GuiError;
+use crate::state::State;
 
 use std::{path::PathBuf, sync::Arc};
 
@@ -13,8 +15,6 @@ use pwm_lib::{
     random::random_password,
     zeroize::Zeroizing,
 };
-
-use crate::gui::error::GuiError;
 
 pub struct Gui {
     scale: f32,
@@ -42,9 +42,7 @@ impl eframe::App for Gui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             if ctx.input(|i| i.viewport().close_requested()) {
-                if self.allowed_to_close {
-                    // do nothing - we will close
-                } else {
+                if !self.allowed_to_close {
                     if Gui::was_vault_modified(self.state.clone()) {
                         ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
                         self.show_confirmation_dialog = true;
@@ -83,7 +81,7 @@ impl eframe::App for Gui {
                 GuiError::display_error_or_print(self.state.clone(), error.to_string());
             }
 
-            if let Err(error) = Gui::display_password_prompts(self.state.clone(), ui) {
+            if let Err(error) = Gui::display_prompts(self.state.clone(), ui) {
                 GuiError::display_error_or_print(self.state.clone(), error.to_string());
             }
 
@@ -472,20 +470,20 @@ impl Gui {
         Ok(())
     }
 
-    fn display_password_prompts(state: Arc<State>, ui: &mut egui::Ui) -> Result<(), GuiError> {
-        let mut passwords = state.password.lock()?;
+    fn display_prompts(state: Arc<State>, ui: &mut egui::Ui) -> Result<(), GuiError> {
+        let mut prompts = state.prompts.lock()?;
         let mut count = 0;
         let mut remove_list = Vec::<usize>::new();
 
-        if passwords.len() <= 0 {
+        if prompts.len() <= 0 {
             return Ok(());
         }
 
-        for (prompt, password, sender) in passwords.iter_mut() {
+        for prompt in prompts.iter_mut() {
             ui.horizontal(|ui| {
                 ui.vertical(|ui| {
-                    ui.label(prompt.as_str());
-                    let (remove, _) = password_ui(ui, (password, sender));
+                    ui.label(prompt.prompt.as_str());
+                    let (remove, _) = prompt.prompt_ui(ui);
                     if remove {
                         remove_list.push(count);
                     }
@@ -501,7 +499,7 @@ impl Gui {
         remove_list.reverse();
 
         for i in remove_list {
-            passwords.remove(i);
+            prompts.remove(i);
         }
 
         Ok(())
@@ -626,9 +624,14 @@ impl Gui {
                             if ui.button("Get").clicked() {
                                 tokio::spawn(State::get(state.clone(), name.clone()));
                             }
-                            if ui.button("Delete").clicked() {
-                                tokio::spawn(State::remove(state.clone(), name.clone()));
-                            }
+                            ui.menu_button("Modify", |ui| {
+                                if ui.button("Rename").clicked() {
+                                    tokio::spawn(State::rename(state.clone(), name.clone()));
+                                }
+                                if ui.button("Delete").clicked() {
+                                    tokio::spawn(State::remove(state.clone(), name.clone()));
+                                }
+                            });
                             ui.add_space(4.0)
                         });
                     });
@@ -641,7 +644,7 @@ impl Gui {
 
 impl Drop for Gui {
     fn drop(&mut self) {
-        let mut senders = self.state.password.lock().unwrap();
+        let mut senders = self.state.prompts.lock().unwrap();
         senders.clear();
     }
 }

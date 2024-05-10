@@ -13,6 +13,7 @@ pub trait DatabaseInterface {
     fn insert_from_csv(&mut self, file: &str, password: &[u8]) -> Result<(), DatabaseError>;
     fn export_to_csv(&mut self, file: &str, password: &[u8]) -> Result<(), DatabaseError>;
     fn remove(&mut self, name: &str, password: &[u8]) -> Result<(), DatabaseError>;
+    fn rename(&mut self, name: &str, new_name: &str, password: &[u8]) -> Result<(), DatabaseError>;
     fn get(&self, name: &str, password: &[u8]) -> Result<AesResult, DatabaseError>;
     fn serialize_encrypted(&self, password: &[u8]) -> Result<AesResult, DatabaseError>;
 }
@@ -91,6 +92,16 @@ impl DatabaseInterface for DatabaseEncrypted {
         }
 
         self.db.remove(name)?;
+
+        Ok(())
+    }
+
+    fn rename(&mut self, name: &str, new_name: &str, password: &[u8]) -> Result<(), DatabaseError> {
+        if !self.hash_password_and_compare(password) {
+            return Err(DatabaseError::InvalidPassword);
+        }
+
+        self.db.rename(name, new_name)?;
 
         Ok(())
     }

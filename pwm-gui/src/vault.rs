@@ -61,7 +61,7 @@ impl Vault {
 
     pub fn insert(
         &mut self,
-        name: &String,
+        name: &str,
         data: &[u8],
         password: &[u8],
     ) -> Result<(), DatabaseError> {
@@ -80,13 +80,19 @@ impl Vault {
         self.db.export_to_csv(file, password)
     }
 
-    pub fn remove(&mut self, name: &String, password: &[u8]) -> Result<(), DatabaseError> {
+    pub fn remove(&mut self, name: &str, password: &[u8]) -> Result<(), DatabaseError> {
         self.changed = true;
         self.prev_list_changed = true;
         self.db.remove(name, password)
     }
 
-    pub fn get(&self, name: &String, password: &[u8]) -> Result<AesResult, DatabaseError> {
+    pub fn rename(&mut self, name: &str, new_name: &str, password: &[u8]) -> Result<(), DatabaseError> {
+        self.changed = true;
+        self.prev_list_changed = true;
+        self.db.rename(name, new_name, password)
+    }
+
+    pub fn get(&self, name: &str, password: &[u8]) -> Result<AesResult, DatabaseError> {
         self.db.get(name, password)
     }
 

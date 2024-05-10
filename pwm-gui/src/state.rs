@@ -5,15 +5,17 @@ use crate::timer::Timer;
 use crate::vault::Vault;
 
 use std::path::Path;
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{channel, Receiver};
 use std::sync::Arc;
 use std::sync::Mutex;
+
+use crate::gui::prompt::Prompt;
 
 pub struct State {
     pub prev_file: Mutex<Option<String>>,
     pub errors: Mutex<Vec<(String, Timer)>>,
     // Prompt, Password, Sender
-    pub password: Mutex<Vec<(String, Zeroizing<String>, Sender<Zeroizing<String>>)>>,
+    pub prompts: Mutex<Vec<Prompt>>,
     pub vault: Mutex<Option<Vault>>,
     pub clipboard_string: Mutex<Option<Zeroizing<String>>>,
     pub search_string: Mutex<String>,
@@ -25,7 +27,7 @@ impl Default for State {
         Self {
             prev_file: Mutex::new(None),
             errors: Mutex::new(Vec::new()),
-            password: Mutex::new(Vec::new()),
+            prompts: Mutex::new(Vec::new()),
             vault: Mutex::new(None),
             clipboard_string: Mutex::new(None),
             search_string: Mutex::new(String::new()),
@@ -146,6 +148,23 @@ impl State {
         Ok(())
     }
 
+    pub async fn rename(state: Arc<State>, name: String) -> Result<(), GuiError> {
+        let receiver = State::add_password_prompt(state.clone(), format!("Enter master password"))?;
+        let password = receiver.recv()?;
+
+        let receiver = State::add_prompt(state.clone(), format!("Enter new name"))?;
+        let new_name = receiver.recv()?;
+
+        let mut vault = state.vault.lock()?;
+        let vault = match &mut *vault {
+            Some(vault) => vault,
+            None => return Err(GuiError::NoVault),
+        };
+
+        vault.rename(name.as_str(), new_name.as_str(), password.as_bytes())?;
+        Ok(())
+    }
+
     pub async fn remove(state: Arc<State>, name: String) -> Result<(), GuiError> {
         let receiver = Self::add_password_prompt(state.clone(), format!("Enter master password"))?;
         let password = receiver.recv()?;
@@ -195,8 +214,20 @@ impl State {
     ) -> Result<Receiver<Zeroizing<String>>, GuiError> {
         let (sender, receiver) = channel();
 
-        let mut vec = state.password.lock()?;
-        vec.push((prompt, Zeroizing::new(String::new()), sender));
+        let mut vec = state.prompts.lock()?;
+        vec.push(Prompt::new(prompt, Zeroizing::new(String::new()), sender, true));
+
+        return Ok(receiver);
+    }
+
+    pub fn add_prompt(
+        state: Arc<State>,
+        prompt: String,
+    ) -> Result<Receiver<Zeroizing<String>>, GuiError> {
+        let (sender, receiver) = channel();
+
+        let mut vec = state.prompts.lock()?;
+        vec.push(Prompt::new(prompt, Zeroizing::new(String::new()), sender, false));
 
         return Ok(receiver);
     }
@@ -210,7 +241,7 @@ impl State {
 
     pub fn contains_vault(state: Arc<State>) -> Result<bool, GuiError> {
         if let Some(_vault) = &*state.vault.lock()? {
-            return Ok(true)
+            return Ok(true);
         }
         Ok(false)
     }

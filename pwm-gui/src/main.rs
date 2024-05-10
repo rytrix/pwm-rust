@@ -1,7 +1,6 @@
 #![windows_subsystem = "windows"]
 
 mod gui;
-mod password;
 mod state;
 mod timer;
 mod vault;

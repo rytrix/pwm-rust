@@ -97,7 +97,7 @@ impl Vault {
                             println!("Expected a file");
                         }
                     }
-                    "remove" | "rm" | "r" => {
+                    "remove" | "rm" => {
                         if let Some(data) = itr.next() {
                             match self.remove(data) {
                                 Ok(()) => (),
@@ -107,6 +107,18 @@ impl Vault {
                             }
                         } else {
                             println!("Expected a key")
+                        }
+                    }
+                    "rename" => {
+                        if let (Some(name), Some(new_name)) = (itr.next(), itr.next()) {
+                            match self.rename(name, new_name) {
+                                Ok(()) => (),
+                                Err(error) => {
+                                    println!("Failed to rename: {}", error.to_string());
+                                }
+                            }
+                        } else {
+                            println!("Expected rename <name> <name>")
                         }
                     }
                     "get" | "g" => {
@@ -277,6 +289,19 @@ impl Vault {
         Ok(())
     }
 
+    fn rename(&mut self, name: &str, new_name: &str) -> Result<(), DatabaseError> {
+        let password = match request_password("Enter the master password") {
+            Ok(password) => password,
+            Err(error) => return Err(DatabaseError::InputError(error.to_string())),
+        };
+        self.db.rename(name, new_name, password.as_bytes())?;
+
+        self.changed = true;
+
+        Ok(())
+    }
+
+
     fn get(&self, name: &str) -> Result<AesResult, DatabaseError> {
         let password = match request_password("Enter the master password") {
             Ok(password) => password,
@@ -320,6 +345,7 @@ impl Vault {
     import <file>       - import key/value pairs from csv
     export <file>       - export key/value pairs to csv
     remove <key>        - remove an element
+    remove <name> <name>- rename an entry
     get    <key>        - retrieve an element
     save   <file>       - save to a file
     list                - list all keys
