@@ -134,6 +134,7 @@ impl Vault {
         let ciphertext = self.db.serialize_encrypted(password)?;
         std::fs::write(file, ciphertext.as_ref())?;
         self.changed = false;
+        self.name_buffer = get_file_name(Path::new(file).to_path_buf());
 
         Ok(())
     }

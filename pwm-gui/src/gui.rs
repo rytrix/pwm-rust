@@ -8,7 +8,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use eframe::egui::{self, Layout, Vec2};
 use egui_extras::{Column, TableBuilder};
-use log::{error, info, warn};
+use log::{error, warn};
 
 use pwm_lib::{
     crypt_file::{decrypt_file, encrypt_file},
@@ -97,7 +97,7 @@ impl eframe::App for Gui {
 }
 
 impl Gui {
-    pub fn open_file_dialog(state: Arc<State>, update_prev_file: bool) -> Option<PathBuf> {
+    pub fn open_file_dialog(state: Arc<State>) -> Option<PathBuf> {
         let mut dialog = rfd::FileDialog::new();
 
         match std::env::current_dir() {
@@ -113,20 +113,10 @@ impl Gui {
         };
 
         let file = dialog.pick_file();
-        if update_prev_file {
-            if let Some(file) = &file {
-                *match state.prev_file.lock() {
-                    Ok(prev_file) => prev_file,
-                    Err(_) => return None,
-                } = Some(file.display().to_string());
-
-                info!("Selected file {}", file.display().to_string());
-            }
-        }
         file
     }
 
-    pub fn save_file_dialog(state: Arc<State>, update_prev_file: bool) -> Option<PathBuf> {
+    pub fn save_file_dialog(state: Arc<State>) -> Option<PathBuf> {
         let dialog = rfd::FileDialog::new();
 
         let mut dialog = match state.vault.lock() {
@@ -151,16 +141,6 @@ impl Gui {
         };
 
         let file = dialog.save_file();
-        if update_prev_file {
-            if let Some(file) = &file {
-                *match state.prev_file.lock() {
-                    Ok(prev_file) => prev_file,
-                    Err(_) => return None,
-                } = Some(file.display().to_string());
-
-                info!("Selected save file \"{}\"", file.display().to_string());
-            }
-        }
         file
     }
 
@@ -223,14 +203,9 @@ impl Gui {
             None => return,
         };
 
-        let path = match state.clone().prev_file.lock() {
+        let path = match State::get_prev_file(state.clone()) {
             Ok(path) => {
-                if let Some(path) = &*path {
-                    path.clone()
-                } else {
-                    GuiError::display_error_or_print(state, "No previous file".to_string());
-                    return;
-                }
+                path
             }
             Err(error) => {
                 GuiError::display_error_or_print(
@@ -254,7 +229,7 @@ impl Gui {
             None => return,
         };
 
-        let path = match Gui::save_file_dialog(state.clone(), true) {
+        let path = match Gui::save_file_dialog(state.clone()) {
             Some(path) => path,
             None => return,
         };
@@ -274,7 +249,7 @@ impl Gui {
     }
 
     async fn crypt_setup(state: Arc<State>) -> Option<(String, Zeroizing<String>)> {
-        let file = Self::open_file_dialog(state.clone(), true);
+        let file = Self::open_file_dialog(state.clone());
         if let Some(file_path) = file {
             let file = get_file_name(file_path);
 

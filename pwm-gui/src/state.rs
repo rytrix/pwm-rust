@@ -12,7 +12,6 @@ use std::sync::Mutex;
 use crate::gui::prompt::Prompt;
 
 pub struct State {
-    pub prev_file: Mutex<Option<String>>,
     pub errors: Mutex<Vec<(String, Timer)>>,
     // Prompt, Password, Sender
     pub prompts: Mutex<Vec<Prompt>>,
@@ -25,7 +24,6 @@ pub struct State {
 impl Default for State {
     fn default() -> Self {
         Self {
-            prev_file: Mutex::new(None),
             errors: Mutex::new(Vec::new()),
             prompts: Mutex::new(Vec::new()),
             vault: Mutex::new(None),
@@ -54,7 +52,7 @@ impl State {
     }
 
     pub async fn open_vault_from_file(state: Arc<State>) -> Result<(), GuiError> {
-        let file = match Gui::open_file_dialog(state.clone(), true) {
+        let file = match Gui::open_file_dialog(state.clone()) {
             Some(file) => file.display().to_string(),
             None => return Err(GuiError::NoFile),
         };
@@ -114,7 +112,7 @@ impl State {
         let receiver = Self::add_password_prompt(state.clone(), format!("Enter master password"))?;
         let password = receiver.recv()?;
 
-        let file = match Gui::open_file_dialog(state.clone(), false) {
+        let file = match Gui::open_file_dialog(state.clone()) {
             Some(file) => file,
             None => return Err(GuiError::NoFile),
         };
@@ -133,7 +131,7 @@ impl State {
         let receiver = Self::add_password_prompt(state.clone(), format!("Enter master password"))?;
         let password = receiver.recv()?;
 
-        let file = match Gui::save_file_dialog(state.clone(), false) {
+        let file = match Gui::save_file_dialog(state.clone()) {
             Some(file) => file,
             None => return Err(GuiError::NoFile),
         };
@@ -244,5 +242,12 @@ impl State {
             return Ok(true);
         }
         Ok(false)
+    }
+
+    pub fn get_prev_file(state: Arc<State>) -> Result<String, GuiError> {
+        if let Some(vault) = &*state.vault.lock()? {
+            return Ok(vault.name_buffer.clone())
+        }
+        Err(GuiError::NoVault)
     }
 }
