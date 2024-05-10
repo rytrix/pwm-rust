@@ -20,7 +20,7 @@ pub fn aes_gcm_encrypt(
 
     let cipher = Aes256Gcm::new(&key);
 
-    // TODO if doing absurd number of random numbers over 4 million consider siv
+    // if doing absurd number of random numbers over 4 million consider siv
     let nonce = Aes256Gcm::generate_nonce(&mut aead::OsRng); // 96-bits; unique per message
     let mut ciphertext = cipher.encrypt(&nonce, plaintext)?;
     ciphertext.extend_from_slice(nonce.as_slice());
