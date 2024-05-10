@@ -4,8 +4,6 @@ use crate::db_base::error::DatabaseError;
 
 use super::DatabaseEncrypted;
 
-use log::warn;
-
 pub trait DatabaseInterface {
     fn new_deserialize_encrypted(
         serialized: &AesResult,
