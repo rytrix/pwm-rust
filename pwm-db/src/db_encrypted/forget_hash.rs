@@ -74,6 +74,7 @@ impl DatabaseInterface for DatabaseEncrypted {
         }
         let mut writer = csv::Writer::from_path(file)?;
 
+        writer.write_record([b"Username", b"Password"])?;
         for name in self.db.list()? {
             let ciphertext = self.db.get(name.as_str())?;
             let hash = Self::hash_password_argon2_with_salt(password, ciphertext.get_salt_slice())?;
