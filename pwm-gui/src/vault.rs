@@ -2,7 +2,7 @@ use std::path::Path;
 
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use pwm_db::{
-    db_base::DatabaseError,
+    db_base::error::DatabaseError,
     db_encrypted::{forget_hash::DatabaseInterface, DatabaseEncrypted},
 };
 use pwm_lib::aes_wrapper::AesResult;

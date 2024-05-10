@@ -1,4 +1,4 @@
-use crate::db_base::{Database, DatabaseError};
+use crate::db_base::{Database, error::DatabaseError};
 use pwm_lib::{
     aes_wrapper::{aes_gcm_decrypt, AesResult},
     hash::{

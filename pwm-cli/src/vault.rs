@@ -1,4 +1,7 @@
-use pwm_db::{db_base::DatabaseError, db_encrypted::{DatabaseEncrypted, forget_hash::DatabaseInterface}};
+use pwm_db::{
+    db_base::error::DatabaseError,
+    db_encrypted::{forget_hash::DatabaseInterface, DatabaseEncrypted},
+};
 use pwm_lib::{aes_wrapper::AesResult, zeroize::Zeroizing};
 
 use crate::password::{password_confirmation, request_password};
@@ -73,7 +76,7 @@ impl Vault {
                     "import" | "im" => {
                         if let Some(name) = itr.next() {
                             match self.import(name) {
-                                Ok(()) => {},
+                                Ok(()) => {}
                                 Err(error) => {
                                     println!("Failed to import: {}", error.to_string());
                                 }
@@ -85,7 +88,7 @@ impl Vault {
                     "export" | "ex" => {
                         if let Some(name) = itr.next() {
                             match self.export(name) {
-                                Ok(()) => {},
+                                Ok(()) => {}
                                 Err(error) => {
                                     println!("Failed to export: {}", error.to_string());
                                 }

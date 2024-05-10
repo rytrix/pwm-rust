@@ -1,6 +1,6 @@
 use pwm_lib::zeroize::Zeroizing;
 
-use crate::gui::{get_file_name, Gui, GuiError};
+use crate::gui::{error::GuiError, get_file_name, Gui};
 use crate::timer::Timer;
 use crate::vault::Vault;
 

@@ -1,6 +1,6 @@
 use pwm_lib::aes_wrapper::{aes_gcm_decrypt, aes_gcm_encrypt, AesResult};
 
-use crate::db_base::DatabaseError;
+use crate::db_base::error::DatabaseError;
 
 use super::DatabaseEncrypted;
 
