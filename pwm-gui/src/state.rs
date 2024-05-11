@@ -213,7 +213,12 @@ impl State {
         let (sender, receiver) = channel();
 
         let mut vec = state.prompts.lock()?;
-        vec.push(Prompt::new(prompt, Zeroizing::new(String::new()), sender, true));
+        vec.push(Prompt::new(
+            prompt,
+            Zeroizing::new(String::new()),
+            sender,
+            true,
+        ));
 
         return Ok(receiver);
     }
@@ -225,7 +230,12 @@ impl State {
         let (sender, receiver) = channel();
 
         let mut vec = state.prompts.lock()?;
-        vec.push(Prompt::new(prompt, Zeroizing::new(String::new()), sender, false));
+        vec.push(Prompt::new(
+            prompt,
+            Zeroizing::new(String::new()),
+            sender,
+            false,
+        ));
 
         return Ok(receiver);
     }
@@ -246,7 +256,7 @@ impl State {
 
     pub fn get_prev_file(state: Arc<State>) -> Result<String, GuiError> {
         if let Some(vault) = &*state.vault.lock()? {
-            return Ok(vault.name_buffer.clone())
+            return Ok(vault.name_buffer.clone());
         }
         Err(GuiError::NoVault)
     }

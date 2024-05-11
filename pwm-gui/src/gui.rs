@@ -13,7 +13,7 @@ use log::{error, warn};
 use pwm_lib::{
     crypt_file::{decrypt_file, encrypt_file},
     random::random_password,
-    zeroize::Zeroizing,
+    zeroize::{Zeroize, Zeroizing},
 };
 
 pub struct Gui {
@@ -66,6 +66,7 @@ impl eframe::App for Gui {
                     if let Some(result) = &mut *clipboard {
                         // println!("{}", result.as_str());
                         let string = result.to_string();
+                        o.copied_text.zeroize();
                         o.copied_text = string;
                         *clipboard = None;
                     }
@@ -204,9 +205,7 @@ impl Gui {
         };
 
         let path = match State::get_prev_file(state.clone()) {
-            Ok(path) => {
-                path
-            }
+            Ok(path) => path,
             Err(error) => {
                 GuiError::display_error_or_print(
                     state,
@@ -319,6 +318,18 @@ impl Gui {
                 GuiError::display_error_or_print(state.clone(), error.to_string());
             }
         }
+    }
+
+    async fn clear_clipboard(state: Arc<State>) {
+        let mut clipboard = match state.clipboard_string.lock() {
+            Ok(clipboard) => clipboard,
+            Err(error) => {
+                GuiError::display_error_or_print(state.clone(), error.to_string());
+                return;
+            }
+        };
+
+        *clipboard = Some(Zeroizing::new(String::from("0")));
     }
 
     fn was_vault_modified(state: Arc<State>) -> bool {
@@ -439,6 +450,10 @@ impl Gui {
                     }
                 }
             });
+
+            if ui.button("Clear Clipboard").clicked() {
+                tokio::spawn(Gui::clear_clipboard(self.state.clone()));
+            }
         });
 
         ui.separator();
