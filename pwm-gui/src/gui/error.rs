@@ -11,6 +11,7 @@ pub enum GuiError {
     DatabaseError(String),
     NoFile,
     NoVault,
+    PasswordNotSame,
     Utf8Fail(String),
 }
 
@@ -34,6 +35,7 @@ impl std::fmt::Display for GuiError {
             Self::DatabaseError(msg) => f.write_fmt(std::format_args!("Vault error: {}", msg)),
             Self::NoFile => f.write_str("No file selected"),
             Self::NoVault => f.write_str("No vault opened"),
+            Self::PasswordNotSame => f.write_str("Passwords do not match"),
             Self::Utf8Fail(msg) => f.write_fmt(std::format_args!("{}", msg)),
         };
     }

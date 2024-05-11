@@ -29,18 +29,17 @@ impl Default for State {
             vault: Mutex::new(None),
             clipboard_string: Mutex::new(None),
             search_string: Mutex::new(String::new()),
-            password_length: Mutex::new(String::new()),
+            password_length: Mutex::new(String::from("32")),
         }
     }
 }
 
 impl State {
     pub async fn create_vault(state: Arc<State>) -> Result<(), GuiError> {
-        let receiver = Self::add_password_prompt(
+        let password = State::add_confirmation_password_prompt(
             state.clone(),
             String::from("Enter new vault's master password"),
         )?;
-        let password = receiver.recv()?;
 
         let mut vault = state.vault.lock()?;
         *vault = match Vault::new("New Vault", password.as_bytes()) {
@@ -223,6 +222,23 @@ impl State {
         Ok(())
     }
 
+    pub fn add_prompt(
+        state: Arc<State>,
+        prompt: String,
+    ) -> Result<Receiver<Zeroizing<String>>, GuiError> {
+        let (sender, receiver) = channel();
+
+        let mut vec = state.prompts.lock()?;
+        vec.push(Prompt::new(
+            prompt,
+            Zeroizing::new(String::new()),
+            sender,
+            false,
+        ));
+
+        return Ok(receiver);
+    }
+
     pub fn add_password_prompt(
         state: Arc<State>,
         prompt: String,
@@ -240,21 +256,18 @@ impl State {
         return Ok(receiver);
     }
 
-    pub fn add_prompt(
+    pub fn add_confirmation_password_prompt(
         state: Arc<State>,
         prompt: String,
-    ) -> Result<Receiver<Zeroizing<String>>, GuiError> {
-        let (sender, receiver) = channel();
+    ) -> Result<Zeroizing<String>, GuiError> {
+        let p1 = State::add_password_prompt(state.clone(), prompt.clone())?.recv()?;
+        let p2 = State::add_password_prompt(state.clone(), format!("{} again", prompt))?.recv()?;
 
-        let mut vec = state.prompts.lock()?;
-        vec.push(Prompt::new(
-            prompt,
-            Zeroizing::new(String::new()),
-            sender,
-            false,
-        ));
-
-        return Ok(receiver);
+        if p1.eq(&p2) {
+            return Ok(p1);
+        } else {
+            return Err(GuiError::PasswordNotSame);
+        }
     }
 
     #[allow(unused)]
