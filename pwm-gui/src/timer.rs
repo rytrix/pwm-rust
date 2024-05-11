@@ -24,6 +24,10 @@ impl Timer {
         }
     }
 
+    pub fn remaining_time(&self) -> Duration {
+        self.duration - self.start_time.elapsed()
+    }
+
     pub fn is_complete(&self) -> bool {
         if self.start_time.elapsed() >= self.duration {
             return true;

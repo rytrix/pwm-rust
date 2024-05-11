@@ -1,6 +1,6 @@
 use std::sync::{mpsc::RecvError, Arc, PoisonError};
 
-use crate::{state::State, timer::Timer};
+use crate::state::State;
 use log::error;
 use pwm_db::db_base::error::DatabaseError;
 
@@ -16,7 +16,7 @@ pub enum GuiError {
 
 impl GuiError {
     pub fn display_error_or_print(state: Arc<State>, error: String) {
-        if let Err(display_error) = State::add_error(state, (error.to_string(), Timer::default())) {
+        if let Err(display_error) = State::add_error(state, error.to_string()) {
             error!(
                 "Failed to display error \"{}\", because of error: \"{}\"",
                 error.to_string(),

@@ -1,5 +1,6 @@
 pub mod error;
 pub mod prompt;
+pub mod message;
 
 use crate::gui::error::GuiError;
 use crate::state::State;
@@ -86,7 +87,7 @@ impl eframe::App for Gui {
                 GuiError::display_error_or_print(self.state.clone(), error.to_string());
             }
 
-            if let Err(error) = Gui::display_errors(self.state.clone(), ui) {
+            if let Err(error) = Gui::display_messages(self.state.clone(), ui) {
                 GuiError::display_error_or_print(self.state.clone(), error.to_string());
             }
 
@@ -495,23 +496,18 @@ impl Gui {
         Ok(())
     }
 
-    fn display_errors(state: Arc<State>, ui: &mut egui::Ui) -> Result<(), GuiError> {
-        let mut errors = state.errors.lock()?;
+    fn display_messages(state: Arc<State>, ui: &mut egui::Ui) -> Result<(), GuiError> {
+        let mut messages = state.messages.lock()?;
         let mut count = 0;
         let mut remove_list = Vec::<usize>::new();
 
-        if errors.len() <= 0 {
+        if messages.len() <= 0 {
             return Ok(());
         }
 
-        for (error, timer) in errors.iter() {
-            if !timer.is_complete() {
-                ui.horizontal(|ui| {
-                    ui.horizontal(|ui| {
-                        ui.heading("Error");
-                        ui.label(error.as_str());
-                    });
-                });
+        for message in messages.iter() {
+            if !message.is_complete() {
+                message.display(ui);
             } else {
                 remove_list.push(count);
             }
@@ -524,7 +520,7 @@ impl Gui {
         remove_list.reverse();
 
         for i in remove_list {
-            errors.remove(i);
+            messages.remove(i);
         }
 
         Ok(())

@@ -1,7 +1,7 @@
 use pwm_lib::zeroize::Zeroizing;
 
+use crate::gui::message::Message;
 use crate::gui::{error::GuiError, get_file_name, Gui};
-use crate::timer::Timer;
 use crate::vault::Vault;
 
 use std::path::Path;
@@ -12,7 +12,7 @@ use std::sync::Mutex;
 use crate::gui::prompt::Prompt;
 
 pub struct State {
-    pub errors: Mutex<Vec<(String, Timer)>>,
+    pub messages: Mutex<Vec<Message>>,
     // Prompt, Password, Sender
     pub prompts: Mutex<Vec<Prompt>>,
     pub vault: Mutex<Option<Vault>>,
@@ -24,7 +24,7 @@ pub struct State {
 impl Default for State {
     fn default() -> Self {
         Self {
-            errors: Mutex::new(Vec::new()),
+            messages: Mutex::new(Vec::new()),
             prompts: Mutex::new(Vec::new()),
             vault: Mutex::new(None),
             clipboard_string: Mutex::new(None),
@@ -240,9 +240,11 @@ impl State {
         return Ok(receiver);
     }
 
-    pub fn add_error(state: Arc<State>, error: (String, Timer)) -> Result<(), GuiError> {
-        let mut errors = state.errors.lock()?;
-        errors.push(error);
+    pub fn add_error(state: Arc<State>, error: String) -> Result<(), GuiError> {
+        let mut messages = state.messages.lock()?;
+
+        let msg = Message::new_default_duration(Some(String::from("Error")), error, false);
+        messages.push(msg);
 
         Ok(())
     }
