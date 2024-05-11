@@ -237,7 +237,7 @@ impl State {
             false,
         ));
 
-        return Ok(receiver);
+        Ok(receiver)
     }
 
     pub fn add_password_prompt(
@@ -254,7 +254,7 @@ impl State {
             true,
         ));
 
-        return Ok(receiver);
+        Ok(receiver)
     }
 
     pub fn add_confirmation_password_prompt(

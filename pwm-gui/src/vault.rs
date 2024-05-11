@@ -105,9 +105,9 @@ impl Vault {
         self.db.list()
     }
 
-    pub fn list_fuzzy_match(&mut self, pattern: &str) -> Result<Vec<String>, DatabaseError> {
+    pub fn list_fuzzy_match(&mut self, pattern: &str) -> Result<&Vec<String>, DatabaseError> {
         if !self.prev_list_changed && self.prev_pattern == pattern {
-            return Ok(self.prev_list.clone());
+            return Ok(&self.prev_list);
         } else {
             let list = self.list()?;
             self.prev_list = list;
@@ -132,7 +132,7 @@ impl Vault {
             // a_score.cmp(&b_score)
         });
 
-        Ok(self.prev_list.clone())
+        Ok(&self.prev_list)
     }
 
     pub fn serialize_to_file(&mut self, file: &str, password: &[u8]) -> Result<(), DatabaseError> {

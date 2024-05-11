@@ -16,7 +16,6 @@ impl Default for Timer {
 }
 
 impl Timer {
-    #[allow(unused)]
     pub fn new(duration: Duration) -> Timer {
         Timer {
             start_time: Instant::now(),

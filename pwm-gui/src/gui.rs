@@ -25,12 +25,10 @@ pub struct Gui {
     state: Arc<State>,
 }
 
-const GUI_SCALE: f32 = 2.0;
-
 impl Default for Gui {
     fn default() -> Self {
         Self {
-            scale: GUI_SCALE,
+            scale: 2.0,
             update_scale: true,
             show_confirmation_dialog: false,
             allowed_to_close: false,
@@ -527,17 +525,13 @@ impl Gui {
     }
 
     fn display_vault(state: Arc<State>, ui: &mut egui::Ui) -> Result<(), GuiError> {
-        let list: Vec<String>;
-        let name: String;
-
         let mut vault = state.vault.lock()?;
         let vault = match &mut *vault {
             Some(vault) => vault,
             None => return Ok(()),
         };
 
-        list = vault.list_fuzzy_match(state.search_string.lock()?.as_str())?;
-        name = vault.name_buffer.clone();
+        let name = vault.name_buffer.clone();
 
         ui.horizontal(|ui| {
             ui.heading(name);
@@ -580,6 +574,7 @@ impl Gui {
 
         ui.separator();
 
+        let list = vault.list_fuzzy_match(state.search_string.lock()?.as_str())?;
         let builder = TableBuilder::new(ui)
             .striped(true)
             .resizable(true)
