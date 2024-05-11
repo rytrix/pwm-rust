@@ -45,6 +45,15 @@ impl<V> Database<V> {
         Ok(())
     }
 
+    pub fn replace(&mut self, name: &str, new_data: V) -> Result<(), DatabaseError> {
+        if !self.data.contains_key(name) {
+            return Err(DatabaseError::NotFound);
+        }
+
+        self.data.insert(name.to_string(), new_data);
+        Ok(())
+    }
+
     pub fn remove(&mut self, name: &str) -> Result<(), DatabaseError> {
         if !self.data.contains_key(name) {
             return Err(DatabaseError::NotFound);

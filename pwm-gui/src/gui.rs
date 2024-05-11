@@ -1,6 +1,6 @@
 pub mod error;
-pub mod prompt;
 pub mod message;
+pub mod prompt;
 
 use crate::gui::error::GuiError;
 use crate::state::State;
@@ -549,8 +549,7 @@ impl Gui {
                         return ();
                     }
                 };
-                let _response =
-                    ui.add_sized([100.0, 20.0], egui::TextEdit::singleline(&mut *buffer));
+                ui.add_sized([100.0, 20.0], egui::TextEdit::singleline(&mut *buffer));
             });
             ui.menu_button("Insert", |ui| {
                 ui.horizontal(|ui| {
@@ -613,6 +612,9 @@ impl Gui {
                             ui.menu_button("Modify", |ui| {
                                 if ui.button("Rename").clicked() {
                                     tokio::spawn(State::rename(state.clone(), name.clone()));
+                                }
+                                if ui.button("Replace").clicked() {
+                                    tokio::spawn(State::replace(state.clone(), name.clone()));
                                 }
                                 if ui.button("Delete").clicked() {
                                     tokio::spawn(State::remove(state.clone(), name.clone()));

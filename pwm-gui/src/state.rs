@@ -163,6 +163,23 @@ impl State {
         Ok(())
     }
 
+    pub async fn replace(state: Arc<State>, name: String) -> Result<(), GuiError> {
+        let receiver = State::add_password_prompt(state.clone(), format!("Enter master password"))?;
+        let password = receiver.recv()?;
+
+        let receiver = State::add_password_prompt(state.clone(), format!("Enter new password"))?;
+        let new_data = receiver.recv()?;
+
+        let mut vault = state.vault.lock()?;
+        let vault = match &mut *vault {
+            Some(vault) => vault,
+            None => return Err(GuiError::NoVault),
+        };
+
+        vault.replace(name.as_str(), new_data.as_bytes(), password.as_bytes())?;
+        Ok(())
+    }
+
     pub async fn remove(state: Arc<State>, name: String) -> Result<(), GuiError> {
         let receiver = Self::add_password_prompt(state.clone(), format!("Enter master password"))?;
         let password = receiver.recv()?;
@@ -238,6 +255,14 @@ impl State {
         ));
 
         return Ok(receiver);
+    }
+
+    #[allow(unused)]
+    pub fn add_message(state: Arc<State>, message: Message) -> Result<(), GuiError> {
+        let mut messages = state.messages.lock()?;
+        messages.push(message);
+
+        Ok(())
     }
 
     pub fn add_error(state: Arc<State>, error: String) -> Result<(), GuiError> {

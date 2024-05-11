@@ -86,6 +86,11 @@ impl Vault {
         self.db.remove(name, password)
     }
 
+    pub fn replace(&mut self, name: &str, new_data: &[u8], password: &[u8]) -> Result<(), DatabaseError> {
+        self.changed = true;
+        self.db.replace(name, new_data, password)
+    }
+
     pub fn rename(&mut self, name: &str, new_name: &str, password: &[u8]) -> Result<(), DatabaseError> {
         self.changed = true;
         self.prev_list_changed = true;
