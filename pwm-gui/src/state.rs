@@ -39,6 +39,7 @@ impl State {
         let password = State::add_confirmation_password_prompt(
             state.clone(),
             String::from("Enter new vault's master password"),
+            String::from("Enter new vault's master password again"),
         )?;
 
         let mut vault = state.vault.lock()?;
@@ -259,9 +260,10 @@ impl State {
     pub fn add_confirmation_password_prompt(
         state: Arc<State>,
         prompt: String,
+        confirm_prompt: String,
     ) -> Result<Zeroizing<String>, GuiError> {
-        let p1 = State::add_password_prompt(state.clone(), prompt.clone())?.recv()?;
-        let p2 = State::add_password_prompt(state.clone(), format!("{} again", prompt))?.recv()?;
+        let p1 = State::add_password_prompt(state.clone(), prompt)?.recv()?;
+        let p2 = State::add_password_prompt(state, confirm_prompt)?.recv()?;
 
         if p1.eq(&p2) {
             return Ok(p1);
