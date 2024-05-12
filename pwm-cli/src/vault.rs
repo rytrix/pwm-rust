@@ -180,7 +180,6 @@ impl Vault {
                     "save" | "s" => {
                         if let Some(value) = itr.next() {
                             self.serialize_and_save(value);
-                            self.changed = false;
                         } else {
                             println!("Expected a filename");
                         }
@@ -193,8 +192,6 @@ impl Vault {
                     }
                 }
             }
-
-            // println!("Operation complete\n");
         }
 
         if self.changed {
@@ -262,8 +259,8 @@ impl Vault {
             },
             password.as_bytes(),
         )?;
-
         self.changed = true;
+
         Ok(())
     }
 
@@ -295,7 +292,6 @@ impl Vault {
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
         self.db.remove(name, password.as_bytes())?;
-
         self.changed = true;
 
         Ok(())
@@ -320,7 +316,6 @@ impl Vault {
             }
         };
         self.db.replace(name, new_data.as_bytes(), password.as_bytes())?;
-
         self.changed = true;
 
         Ok(())
@@ -332,7 +327,6 @@ impl Vault {
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
         self.db.rename(name, new_name, password.as_bytes())?;
-
         self.changed = true;
 
         Ok(())
@@ -346,7 +340,7 @@ impl Vault {
         self.db.get(name, password.as_bytes())
     }
 
-    fn serialize_and_save(&self, file: &str) {
+    fn serialize_and_save(&mut self, file: &str) {
         let password = match request_password("Enter master password") {
             Ok(pass) => pass,
             Err(error) => {
@@ -371,6 +365,7 @@ impl Vault {
                 return;
             }
         };
+        self.changed = false;
     }
 
     fn help() {
