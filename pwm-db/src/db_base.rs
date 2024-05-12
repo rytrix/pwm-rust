@@ -79,7 +79,7 @@ impl<V> Database<V> {
 
 #[cfg(test)]
 mod test {
-    use crate::db_base::Database;
+    use crate::db_base::{error::DatabaseError, Database};
 
     #[test]
     fn db_insert() {
@@ -92,5 +92,33 @@ mod test {
             panic!("did not find 5");
         }
         db.remove("Hello").unwrap();
+    }
+
+    #[test]
+    fn db_insert_failed() {
+        let mut db = Database::<i32>::new();
+        db.insert("Hello", 5).unwrap();
+        let result = db.insert("Hello", 5);
+        assert!(result.unwrap_err() == DatabaseError::AlreadyExists)
+    }
+
+    #[test]
+    fn db_rename() {
+        let mut db = Database::<i32>::new();
+        db.insert("Hello", 5).unwrap();
+        db.rename("Hello", "Hello2").unwrap();
+        if *db.get("Hello2").unwrap() != 5 {
+            panic!("did not find 5");
+        }
+    }
+
+    #[test]
+    fn db_replace() {
+        let mut db = Database::<i32>::new();
+        db.insert("Hello", 5).unwrap();
+        db.replace("Hello", 6).unwrap();
+        if *db.get("Hello").unwrap() != 6 {
+            panic!("did not find 6");
+        }
     }
 }

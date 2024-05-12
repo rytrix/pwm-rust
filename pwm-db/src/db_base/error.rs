@@ -1,6 +1,6 @@
 use pwm_lib::aes_wrapper::AesError;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum DatabaseError {
     NotFound,
     AlreadyExists,

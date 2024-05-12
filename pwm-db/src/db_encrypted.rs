@@ -1,4 +1,4 @@
-use crate::db_base::{Database, error::DatabaseError};
+use crate::db_base::{error::DatabaseError, Database};
 use pwm_lib::{
     aes_wrapper::{aes_gcm_decrypt, AesResult},
     hash::{
@@ -20,8 +20,6 @@ impl DatabaseEncrypted {
     pub fn new(password: &[u8]) -> Result<Self, DatabaseError> {
         let hash = Self::hash_password_pbkdf2(password)?;
 
-        // let argon2_hash = Self::hash_password_argon2(password)?;
-
         let db = Self {
             db: Database::new(),
             confirmation_hash: hash,
@@ -40,7 +38,7 @@ impl DatabaseEncrypted {
         };
 
         if !Self::hash_password_and_compare_internal(&hash, password) {
-            return Err(DatabaseError::InvalidPassword)
+            return Err(DatabaseError::InvalidPassword);
         }
 
         let db: Database<AesResult> =
@@ -148,7 +146,10 @@ impl DatabaseEncrypted {
 }
 
 #[cfg(feature = "keep-hash")]
-#[deprecated(since="0.0.1", note="Please don't ever use this it uses the same salt for EVERYTHING!")]
+#[deprecated(
+    since = "0.0.1",
+    note = "Please don't ever use this it uses the same salt for EVERYTHING!"
+)]
 pub mod keep_hash;
 
 pub mod forget_hash;
@@ -162,30 +163,68 @@ mod test_forget {
     #[test]
     fn test_generic() {
         let mut db = DatabaseEncrypted::new(b"test").unwrap();
-        db.insert("ryan", b"password", b"test").unwrap();
-        db.insert("ryan2", b"password", b"test").unwrap();
+        db.insert("user", b"password", b"test").unwrap();
+        db.insert("user2", b"password", b"test").unwrap();
         let list = db.list().unwrap();
-        assert_eq!(list.contains(&"ryan".to_string()), true);
-        assert_eq!(list.contains(&"ryan2".to_string()), true);
+        assert_eq!(list.contains(&"user".to_string()), true);
+        assert_eq!(list.contains(&"user2".to_string()), true);
 
-        let pass = db.get("ryan", b"test").unwrap();
+        let pass = db.get("user", b"test").unwrap();
         assert_eq!(b"password", pass.as_slice());
-        db.remove("ryan2", b"test").unwrap();
-        db.remove("ryan", b"test").unwrap();
+        db.remove("user2", b"test").unwrap();
+        db.remove("user", b"test").unwrap();
         let list = db.list().unwrap();
         assert_eq!(list.len(), 0);
     }
 
     #[test]
+    fn test_generic2() {
+        let pw = b"test";
+        let mut db = DatabaseEncrypted::new(pw).unwrap();
+        db.insert("user", b"password", pw).unwrap();
+        db.insert("user2", b"password", pw).unwrap();
+        db.rename("user2", "user1", pw).unwrap();
+        let list = db.list().unwrap();
+        assert_eq!(list.contains(&"user".to_string()), true);
+        assert_eq!(list.contains(&"user1".to_string()), true);
+
+        db.replace("user1", b"password_new", pw).unwrap();
+        let result = db.get("user1", pw).unwrap();
+        assert_eq!(result.as_slice(), b"password_new");
+
+        let pass = db.get("user", pw).unwrap();
+        assert_eq!(b"password", pass.as_slice());
+    }
+
+    #[test]
     fn test_serialize_deserialize_encrypted() {
         let mut db = DatabaseEncrypted::new(b"test").unwrap();
-        db.insert("ryan", b"password", b"test").unwrap();
-        db.insert("ryan2", b"password", b"test").unwrap();
+        db.insert("user", b"password", b"test").unwrap();
+        db.insert("user2", b"password", b"test").unwrap();
 
         let serialized = db.serialize_encrypted(b"test").unwrap();
         let db = DatabaseEncrypted::new_deserialize_encrypted(&serialized, b"test").unwrap();
 
-        let pass = db.get("ryan", b"test").unwrap();
+        let pass = db.get("user", b"test").unwrap();
         assert_eq!(b"password", pass.as_slice())
+    }
+
+    #[test]
+    fn test_csv() {
+        let pw = b"test";
+        let mut db = DatabaseEncrypted::new(pw).unwrap();
+        db.insert("user", b"password", pw).unwrap();
+        db.insert("user2", b"password,,,broken?", pw).unwrap();
+        db.export_to_csv("db_encrypted_csv_test00000000.csv", pw)
+            .unwrap();
+        let mut db = DatabaseEncrypted::new(pw).unwrap();
+        db.insert_from_csv("db_encrypted_csv_test00000000.csv", pw)
+            .unwrap();
+        std::fs::remove_file("db_encrypted_csv_test00000000.csv").unwrap();
+
+        let pass = db.get("user", pw).unwrap();
+        assert_eq!(b"password", pass.as_slice());
+        let pass = db.get("user2", pw).unwrap();
+        assert_eq!(b"password,,,broken?", pass.as_slice());
     }
 }
