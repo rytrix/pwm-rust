@@ -335,6 +335,48 @@ impl Gui {
         *clipboard = Some(Zeroizing::new(String::from("0")));
     }
 
+    async fn insert(state: Arc<State>, name: String) {
+        if let Err(error) = State::insert(state.clone(), name).await {
+            GuiError::display_error_or_print(state.clone(), error.to_string());
+        }
+    }
+
+    async fn insert_from_csv(state: Arc<State>) {
+        if let Err(error) = State::insert_from_csv(state.clone()).await {
+            GuiError::display_error_or_print(state.clone(), error.to_string());
+        }
+    }
+
+    async fn export_to_csv(state: Arc<State>) {
+        if let Err(error) = State::export_to_csv(state.clone()).await {
+            GuiError::display_error_or_print(state.clone(), error.to_string());
+        }
+    }
+
+    async fn rename(state: Arc<State>, name: String) {
+        if let Err(error) = State::rename(state.clone(), name).await {
+            GuiError::display_error_or_print(state.clone(), error.to_string());
+        }
+    }
+
+    async fn replace(state: Arc<State>, name: String) {
+        if let Err(error) = State::replace(state.clone(), name).await {
+            GuiError::display_error_or_print(state.clone(), error.to_string());
+        }
+    }
+
+    async fn remove(state: Arc<State>, name: String) {
+        if let Err(error) = State::remove(state.clone(), name).await {
+            GuiError::display_error_or_print(state.clone(), error.to_string());
+        }
+    }
+
+    async fn get(state: Arc<State>, name: String) {
+        if let Err(error) = State::get(state.clone(), name).await {
+            GuiError::display_error_or_print(state.clone(), error.to_string());
+        }
+    }
+
     fn was_vault_modified(state: Arc<State>) -> bool {
         let vault = match state.vault.lock() {
             Ok(vault) => vault,
@@ -568,7 +610,7 @@ impl Gui {
                 ui.add_sized([100.0, 20.0], egui::TextEdit::singleline(&mut *buffer))
                     .request_focus();
                 if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                    ui.close_menu();
+                    ui.memory_mut(|mem| mem.close_popup());
                 }
             });
 
@@ -591,26 +633,26 @@ impl Gui {
                     response.request_focus();
 
                     if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                        tokio::spawn(State::insert(state.clone(), vault.insert_buffer.clone()));
+                        tokio::spawn(Gui::insert(state.clone(), vault.insert_buffer.clone()));
                         vault.insert_buffer.clear();
-                        ui.close_menu();
+                        ui.memory_mut(|mem| mem.close_popup());
                     }
                     if ui.button("Enter").clicked() {
-                        tokio::spawn(State::insert(state.clone(), vault.insert_buffer.clone()));
+                        tokio::spawn(Gui::insert(state.clone(), vault.insert_buffer.clone()));
                         vault.insert_buffer.clear();
-                        ui.close_menu();
+                        ui.memory_mut(|mem| mem.close_popup());
                     }
                 });
             });
 
             ui.menu_button("Csv", |ui| {
                 if ui.button("Import").clicked() {
-                    tokio::spawn(State::insert_from_csv(state.clone()));
+                    tokio::spawn(Gui::insert_from_csv(state.clone()));
                     ui.close_menu();
                 }
 
                 if ui.button("Export").clicked() {
-                    tokio::spawn(State::export_to_csv(state.clone()));
+                    tokio::spawn(Gui::export_to_csv(state.clone()));
                     ui.close_menu();
                 }
             });
@@ -646,24 +688,23 @@ impl Gui {
                         });
                         row.col(|ui| {
                             if ui.button("Get").clicked() {
-                                tokio::spawn(State::get(state.clone(), name.clone()));
+                                tokio::spawn(Gui::get(state.clone(), name.clone()));
                             }
                             ui.menu_button("Modify", |ui| {
                                 if ui.button("Rename").clicked() {
-                                    tokio::spawn(State::rename(state.clone(), name.clone()));
-
+                                    tokio::spawn(Gui::rename(state.clone(), name.clone()));
                                     ui.close_menu();
                                 }
                                 if ui.button("Replace").clicked() {
-                                    tokio::spawn(State::replace(state.clone(), name.clone()));
+                                    tokio::spawn(Gui::replace(state.clone(), name.clone()));
                                     ui.close_menu();
                                 }
                                 if ui.button("Delete").clicked() {
-                                    tokio::spawn(State::remove(state.clone(), name.clone()));
+                                    tokio::spawn(Gui::remove(state.clone(), name.clone()));
                                     ui.close_menu();
                                 }
                             });
-                            ui.add_space(4.0)
+                            ui.add_space(6.0)
                         });
                     });
                 }
