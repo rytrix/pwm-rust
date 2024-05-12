@@ -7,9 +7,9 @@ use crate::state::State;
 
 use std::{path::PathBuf, sync::Arc};
 
-use eframe::egui::{self, Layout, Vec2};
+use eframe::egui::{self, Key, Layout, Modifiers, Vec2};
 use egui_extras::{Column, TableBuilder};
-use log::{error, warn};
+use log::{error, info, warn};
 
 use pwm_lib::{
     crypt_file::{decrypt_file, encrypt_file},
@@ -71,6 +71,10 @@ impl eframe::App for Gui {
                     }
                 }
             });
+
+            if let Err(error) = Gui::handle_keybinds(self.state.clone(), ctx) {
+                GuiError::display_error_or_print(self.state.clone(), error.to_string());
+            }
 
             let _text_height = egui::TextStyle::Body
                 .resolve(ui.style())
@@ -543,15 +547,19 @@ impl Gui {
                         return ();
                     }
                 };
-                ui.add_sized([100.0, 20.0], egui::TextEdit::singleline(&mut *buffer));
+                ui.add_sized([100.0, 20.0], egui::TextEdit::singleline(&mut *buffer))
+                    .request_focus();
             });
+
             ui.menu_button("Insert", |ui| {
                 ui.horizontal(|ui| {
                     let response = ui.add_sized(
                         [100.0, 20.0],
                         egui::TextEdit::singleline(&mut vault.insert_buffer),
                     );
-                    if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                    response.request_focus();
+
+                    if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                         tokio::spawn(State::insert(state.clone(), vault.insert_buffer.clone()));
                         vault.insert_buffer.clear();
                     }
@@ -561,6 +569,7 @@ impl Gui {
                     }
                 });
             });
+
             ui.menu_button("Csv", |ui| {
                 if ui.button("Import").clicked() {
                     tokio::spawn(State::insert_from_csv(state.clone()));
@@ -620,6 +629,35 @@ impl Gui {
                     });
                 }
             });
+
+        Ok(())
+    }
+
+    fn handle_keybinds(state: Arc<State>, ctx: &egui::Context) -> Result<(), GuiError> {
+        if ctx.input(|i| i.modifiers.matches_exact(Modifiers::CTRL) && i.key_pressed(Key::N)) {
+            tokio::spawn(Gui::file_new(state.clone()));
+            info!("File New");
+        }
+        if ctx.input(|i| i.modifiers.matches_exact(Modifiers::CTRL) && i.key_pressed(Key::E)) {
+            tokio::spawn(Gui::file_open(state.clone()));
+            info!("File Open");
+        }
+        if ctx.input(|i| i.modifiers.matches_exact(Modifiers::CTRL) && i.key_pressed(Key::O)) {
+            tokio::spawn(Gui::file_open(state.clone()));
+            info!("File Open");
+        }
+        if ctx.input(|i| i.modifiers.matches_exact(Modifiers::CTRL) && i.key_pressed(Key::S)) {
+            tokio::spawn(Gui::file_save(state.clone()));
+            info!("File Save");
+        }
+        if ctx.input(|i| {
+            i.modifiers
+                .matches_exact(Modifiers::CTRL | Modifiers::SHIFT)
+                && i.key_pressed(Key::S)
+        }) {
+            tokio::spawn(Gui::file_save_as(state.clone()));
+            info!("File Save as");
+        }
 
         Ok(())
     }

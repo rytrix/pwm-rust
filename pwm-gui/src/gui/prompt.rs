@@ -8,6 +8,7 @@ pub struct Prompt {
     pub response: Zeroizing<String>,
     pub sender: Sender<Zeroizing<String>>,
     password_prompt: bool,
+    requested_focus: bool,
 }
 
 impl Prompt {
@@ -22,6 +23,7 @@ impl Prompt {
             response,
             sender,
             password_prompt,
+            requested_focus: false,
         }
     }
 
@@ -40,6 +42,10 @@ impl Prompt {
 
             let buffer: &mut String = self.response.borrow_mut();
             let response = ui.add_sized(ui.available_size(), egui::TextEdit::singleline(buffer));
+            if !self.requested_focus {
+                response.request_focus();
+                self.requested_focus = true;
+            }
 
             if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                 self.sender.send(self.response.clone()).unwrap();
@@ -82,6 +88,10 @@ impl Prompt {
                 ui.available_size(),
                 egui::TextEdit::singleline(buffer).password(!show_plaintext),
             );
+            if !self.requested_focus {
+                response.request_focus();
+                self.requested_focus = true;
+            }
 
             if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                 self.sender.send(self.response.clone()).unwrap();
@@ -94,11 +104,11 @@ impl Prompt {
         (remove, result.response)
     }
 
-    pub fn prompt_ui(&mut self, ui: &mut egui::Ui) -> (bool , egui::Response) {
+    pub fn prompt_ui(&mut self, ui: &mut egui::Ui) -> (bool, egui::Response) {
         if self.password_prompt {
-            return self.password_ui_internal(ui)
+            return self.password_ui_internal(ui);
         } else {
-            return self.prompt_ui_internal(ui)
+            return self.prompt_ui_internal(ui);
         }
     }
 }
