@@ -547,7 +547,17 @@ impl Gui {
 
         ui.horizontal(|ui| {
             ui.heading(name);
-            ui.menu_button("Search", |ui| {
+            let response = ui.button("Search");
+            let popup_id = ui.make_persistent_id("SearchPopupId");
+
+            if response.clicked() {
+                ui.memory_mut(|mem| mem.open_popup(popup_id));
+            }
+            if ui.input(|i| i.modifiers.matches_exact(Modifiers::CTRL) && i.key_pressed(Key::F)) {
+                ui.memory_mut(|mem| mem.toggle_popup(popup_id));
+            }
+
+            egui::popup_below_widget(ui, popup_id, &response, |ui| {
                 let mut buffer = match state.search_string.lock() {
                     Ok(buffer) => buffer,
                     Err(error) => {
@@ -557,9 +567,22 @@ impl Gui {
                 };
                 ui.add_sized([100.0, 20.0], egui::TextEdit::singleline(&mut *buffer))
                     .request_focus();
+                if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                    ui.close_menu();
+                }
             });
 
-            ui.menu_button("Insert", |ui| {
+            let response = ui.button("Insert");
+            let popup_id = ui.make_persistent_id("InsertPopupId");
+
+            if response.clicked() {
+                ui.memory_mut(|mem| mem.open_popup(popup_id));
+            }
+            if ui.input(|i| i.modifiers.matches_exact(Modifiers::CTRL) && i.key_pressed(Key::I)) {
+                ui.memory_mut(|mem| mem.toggle_popup(popup_id));
+            }
+
+            egui::popup_below_widget(ui, popup_id, &response, |ui| {
                 ui.horizontal(|ui| {
                     let response = ui.add_sized(
                         [100.0, 20.0],
