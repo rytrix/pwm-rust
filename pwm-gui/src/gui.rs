@@ -398,15 +398,19 @@ impl Gui {
             ui.menu_button("File", |ui| {
                 if ui.button("Create").clicked() {
                     tokio::spawn(Gui::file_new(self.state.clone()));
+                    ui.close_menu();
                 }
                 if ui.button("Open").clicked() {
                     tokio::spawn(Gui::file_open(self.state.clone()));
+                    ui.close_menu();
                 }
                 if ui.button("Save").clicked() {
                     tokio::spawn(Gui::file_save(self.state.clone()));
+                    ui.close_menu();
                 }
                 if ui.button("Save As").clicked() {
                     tokio::spawn(Gui::file_save_as(self.state.clone()));
+                    ui.close_menu();
                 }
             });
 
@@ -424,9 +428,11 @@ impl Gui {
             ui.menu_button("Encryption", |ui| {
                 if ui.button("Encrypt File").clicked() {
                     tokio::spawn(Gui::encrypt_file(self.state.clone()));
+                    ui.close_menu();
                 }
                 if ui.button("Decrypt File").clicked() {
                     tokio::spawn(Gui::decrypt_file(self.state.clone()));
+                    ui.close_menu();
                 }
                 match self.state.password_length.lock() {
                     Ok(mut password_length) => {
@@ -441,9 +447,11 @@ impl Gui {
                                     && ui.input(|i| i.key_pressed(egui::Key::Enter))
                                 {
                                     tokio::spawn(Gui::random_password(self.state.clone()));
+                                    ui.close_menu();
                                 }
                                 if ui.button("Generate").clicked() {
                                     tokio::spawn(Gui::random_password(self.state.clone()));
+                                    ui.close_menu();
                                 }
                             });
                         });
@@ -562,10 +570,12 @@ impl Gui {
                     if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                         tokio::spawn(State::insert(state.clone(), vault.insert_buffer.clone()));
                         vault.insert_buffer.clear();
+                        ui.close_menu();
                     }
                     if ui.button("Enter").clicked() {
                         tokio::spawn(State::insert(state.clone(), vault.insert_buffer.clone()));
                         vault.insert_buffer.clear();
+                        ui.close_menu();
                     }
                 });
             });
@@ -573,10 +583,12 @@ impl Gui {
             ui.menu_button("Csv", |ui| {
                 if ui.button("Import").clicked() {
                     tokio::spawn(State::insert_from_csv(state.clone()));
+                    ui.close_menu();
                 }
 
                 if ui.button("Export").clicked() {
                     tokio::spawn(State::export_to_csv(state.clone()));
+                    ui.close_menu();
                 }
             });
         });
@@ -616,12 +628,16 @@ impl Gui {
                             ui.menu_button("Modify", |ui| {
                                 if ui.button("Rename").clicked() {
                                     tokio::spawn(State::rename(state.clone(), name.clone()));
+
+                                    ui.close_menu();
                                 }
                                 if ui.button("Replace").clicked() {
                                     tokio::spawn(State::replace(state.clone(), name.clone()));
+                                    ui.close_menu();
                                 }
                                 if ui.button("Delete").clicked() {
                                     tokio::spawn(State::remove(state.clone(), name.clone()));
+                                    ui.close_menu();
                                 }
                             });
                             ui.add_space(4.0)
