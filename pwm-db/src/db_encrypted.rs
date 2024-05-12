@@ -84,6 +84,11 @@ impl DatabaseEncrypted {
     pub fn list(&self) -> Result<Vec<String>, DatabaseError> {
         self.db.list()
     }
+
+    pub fn list_fuzzy_match(&mut self, pattern: &str) -> Result<&Vec<String>, DatabaseError> {
+        self.db.list_fuzzy_match(pattern)
+    }
+
     // Common end
 
     // Utility
