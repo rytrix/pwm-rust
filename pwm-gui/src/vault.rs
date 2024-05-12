@@ -86,12 +86,22 @@ impl Vault {
         self.db.remove(name, password)
     }
 
-    pub fn replace(&mut self, name: &str, new_data: &[u8], password: &[u8]) -> Result<(), DatabaseError> {
+    pub fn replace(
+        &mut self,
+        name: &str,
+        new_data: &[u8],
+        password: &[u8],
+    ) -> Result<(), DatabaseError> {
         self.changed = true;
         self.db.replace(name, new_data, password)
     }
 
-    pub fn rename(&mut self, name: &str, new_name: &str, password: &[u8]) -> Result<(), DatabaseError> {
+    pub fn rename(
+        &mut self,
+        name: &str,
+        new_name: &str,
+        password: &[u8],
+    ) -> Result<(), DatabaseError> {
         self.changed = true;
         self.prev_list_changed = true;
         self.db.rename(name, new_name, password)
@@ -115,22 +125,29 @@ impl Vault {
             self.prev_list_changed = false;
         }
 
+        if pattern.is_empty() {
+            return Ok(&self.prev_list);
+        }
+
         let matcher = SkimMatcherV2::default();
 
-        self.prev_list.sort_by(|a, b| {
-            let a_score = match matcher.fuzzy_match(a.as_str(), pattern) {
+        let mut rated_list = Vec::new();
+
+        for element in self.prev_list.iter() {
+            let score = match matcher.fuzzy_match(element.as_str(), pattern) {
                 Some(score) => score,
                 None => 0,
             };
+            rated_list.push((score, element))
+        }
 
-            let b_score = match matcher.fuzzy_match(b.as_str(), pattern) {
-                Some(score) => score,
-                None => 0,
-            };
+        rated_list.sort_by(|a, b| b.0.cmp(&a.0));
 
-            b_score.cmp(&a_score)
-            // a_score.cmp(&b_score)
-        });
+        self.prev_list = rated_list
+            .iter()
+            .filter(|x| x.0 != 0)
+            .map(|x| x.1.to_string())
+            .collect::<Vec<String>>();
 
         Ok(&self.prev_list)
     }
