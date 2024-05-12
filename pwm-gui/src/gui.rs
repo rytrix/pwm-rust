@@ -250,15 +250,14 @@ impl Gui {
         }
     }
 
-    async fn crypt_setup(state: Arc<State>) -> Option<(String, Zeroizing<String>)> {
+    async fn crypt_setup(state: Arc<State>, prompt: &str) -> Option<(String, Zeroizing<String>)> {
         let file = Self::open_file_dialog(state.clone());
         if let Some(file_path) = file {
             let file = get_file_name(file_path);
 
-            let receiver = match State::add_password_prompt(
-                state.clone(),
-                format!("Enter password for {}", file),
-            ) {
+            let prompt = format!("{} {}", prompt, file);
+
+            let receiver = match State::add_password_prompt(state.clone(), prompt) {
                 Ok(receiver) => receiver,
                 Err(_) => return None,
             };
@@ -272,7 +271,9 @@ impl Gui {
     }
 
     async fn encrypt_file(state: Arc<State>) {
-        if let Some((file, password)) = Gui::crypt_setup(state.clone()).await {
+        if let Some((file, password)) =
+            Gui::crypt_setup(state.clone(), "Enter password to encrypt").await
+        {
             match encrypt_file(file, None, password.as_bytes()) {
                 Ok(()) => (),
                 Err(error) => {
@@ -283,7 +284,9 @@ impl Gui {
     }
 
     async fn decrypt_file(state: Arc<State>) {
-        if let Some((file, password)) = Gui::crypt_setup(state.clone()).await {
+        if let Some((file, password)) =
+            Gui::crypt_setup(state.clone(), "Enter password to decrypt").await
+        {
             match decrypt_file(file, None, password.as_bytes()) {
                 Ok(()) => (),
                 Err(_error) => {
@@ -718,10 +721,6 @@ impl Gui {
             tokio::spawn(Gui::file_new(state.clone()));
             info!("File New");
         }
-        if ctx.input(|i| i.modifiers.matches_exact(Modifiers::CTRL) && i.key_pressed(Key::E)) {
-            tokio::spawn(Gui::file_open(state.clone()));
-            info!("File Open");
-        }
         if ctx.input(|i| i.modifiers.matches_exact(Modifiers::CTRL) && i.key_pressed(Key::O)) {
             tokio::spawn(Gui::file_open(state.clone()));
             info!("File Open");
@@ -737,6 +736,14 @@ impl Gui {
         }) {
             tokio::spawn(Gui::file_save_as(state.clone()));
             info!("File Save as");
+        }
+        if ctx.input(|i| i.modifiers.matches_exact(Modifiers::CTRL) && i.key_pressed(Key::E)) {
+            tokio::spawn(Gui::encrypt_file(state.clone()));
+            info!("Encrypt File");
+        }
+        if ctx.input(|i| i.modifiers.matches_exact(Modifiers::CTRL) && i.key_pressed(Key::D)) {
+            tokio::spawn(Gui::encrypt_file(state.clone()));
+            info!("Decrypt File");
         }
 
         Ok(())
