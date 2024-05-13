@@ -158,25 +158,22 @@ impl Vault {
                             println!("Expected a key")
                         }
                     }
-                    "list" | "ls" | "l" => match self.db.list() {
-                        Ok(list) => {
-                            let mut list_string = String::new();
-                            let last_value = list.len() - 1;
-                            let mut itr_number = 0;
-                            for value in list {
-                                if itr_number != last_value {
-                                    list_string += format!("{}, ", value).as_str();
-                                } else {
-                                    list_string += format!("{}", value).as_str();
-                                }
-                                itr_number += 1;
+                    "list" | "ls" =>  {
+                        match self.list(itr.next()) {
+                            Ok(()) => (),
+                            Err(error) => {
+                                println!("Failed to list: {}", error.to_string());
                             }
-                            println!("{}", list_string);
-                        }
-                        Err(error) => {
-                            println!("Failed to list: {}", error.to_string());
-                        }
+                        };
                     },
+                    "search" => {
+                        match self.list(itr.next()) {
+                            Ok(()) => (),
+                            Err(error) => {
+                                println!("Failed to search: {}", error.to_string());
+                            }
+                        };
+                    }
                     "save" | "s" => {
                         if let Some(value) = itr.next() {
                             self.serialize_and_save(value);
@@ -315,7 +312,8 @@ impl Vault {
                 Err(error) => return Err(DatabaseError::InputError(error.to_string())),
             }
         };
-        self.db.replace(name, new_data.as_bytes(), password.as_bytes())?;
+        self.db
+            .replace(name, new_data.as_bytes(), password.as_bytes())?;
         self.changed = true;
 
         Ok(())
@@ -338,6 +336,32 @@ impl Vault {
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
         self.db.get(name, password.as_bytes())
+    }
+
+    fn list(&mut self, pattern: Option<&str>) -> Result<(), DatabaseError> {
+        let list_lifetime: Vec<String>;
+
+        let list = if let Some(pattern) = pattern {
+            self.db.list_fuzzy_match(pattern)?
+        } else {
+            list_lifetime = self.db.list()?;
+            &list_lifetime
+        };
+
+        let mut list_string = String::new();
+        let last_value = list.len() - 1;
+        let mut itr_number = 0;
+        for value in list {
+            if itr_number != last_value {
+                list_string += format!("{}, ", value).as_str();
+            } else {
+                list_string += format!("{}", value).as_str();
+            }
+            itr_number += 1;
+        }
+        println!("{}", list_string);
+
+        Ok(())
     }
 
     fn serialize_and_save(&mut self, file: &str) {
@@ -371,17 +395,18 @@ impl Vault {
     fn help() {
         println!(
             "Vault:
-    help                 - this menu 
-    insert <key> <data?> - insert an element 
-    import <file>        - import key/value pairs from csv
-    export <file>        - export key/value pairs to csv
-    remove <key>         - remove an element
-    replace <key> <data?>- remove an element
-    remove <name> <name> - rename an entry
-    get    <key>         - retrieve an element
-    save   <file>        - save to a file
-    list                 - list all keys
-    exit                 - exit the program"
+    help                  - this menu 
+    insert  <key> <data?> - insert an element 
+    import  <file>        - import key/value pairs from csv
+    export  <file>        - export key/value pairs to csv
+    remove  <key>         - remove an element
+    replace <key> <data?> - remove an element
+    remove  <name> <name> - rename an entry
+    get     <key>         - retrieve an element
+    save    <file>        - save to a file
+    list    <pattern?>    - list all keys
+    search  <pattern?>    - list all keys
+    exit                  - exit the program"
         )
     }
 }
