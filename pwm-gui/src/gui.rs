@@ -250,19 +250,38 @@ impl Gui {
         }
     }
 
-    async fn crypt_setup(state: Arc<State>, prompt: &str) -> Option<(String, Zeroizing<String>)> {
+    async fn crypt_setup(
+        state: Arc<State>,
+        prompt: &str,
+        prompt2: Option<&str>,
+    ) -> Option<(String, Zeroizing<String>)> {
         let file = Self::open_file_dialog(state.clone());
         if let Some(file_path) = file {
             let file = get_file_name(file_path);
 
             let prompt = format!("{} {}", prompt, file);
-
             let receiver = match State::add_password_prompt(state.clone(), prompt) {
                 Ok(receiver) => receiver,
                 Err(_) => return None,
             };
 
             let password = receiver.recv().unwrap();
+
+            if let Some(prompt2) = prompt2 {
+                let prompt = format!("{} {}", prompt2, file);
+                let receiver = match State::add_password_prompt(state.clone(), prompt) {
+                    Ok(receiver) => receiver,
+                    Err(_) => return None,
+                };
+
+                let password2 = match receiver.recv() {
+                    Ok(pass) => pass,
+                    Err(_) => return None,
+                };
+                if !password.eq(&password2) {
+                    return None;
+                }
+            }
 
             return Some((String::from(file), password));
         }
@@ -271,8 +290,12 @@ impl Gui {
     }
 
     async fn encrypt_file(state: Arc<State>) {
-        if let Some((file, password)) =
-            Gui::crypt_setup(state.clone(), "Enter password to encrypt").await
+        if let Some((file, password)) = Gui::crypt_setup(
+            state.clone(),
+            "Enter password to encrypt",
+            Some("Confirm password to encrypt"),
+        )
+        .await
         {
             match encrypt_file(file, None, password.as_bytes()) {
                 Ok(()) => (),
@@ -285,7 +308,7 @@ impl Gui {
 
     async fn decrypt_file(state: Arc<State>) {
         if let Some((file, password)) =
-            Gui::crypt_setup(state.clone(), "Enter password to decrypt").await
+            Gui::crypt_setup(state.clone(), "Enter password to decrypt", None).await
         {
             match decrypt_file(file, None, password.as_bytes()) {
                 Ok(()) => (),
