@@ -1,4 +1,4 @@
-# pwm
+# Pwm
 A cross platform password manager written in pure rust
 
 Uses AES encryption to keep passwords encrypted in memory at all times until it is specifically retrieved, the password manager does not have the information to decrypt unless you specifically enter your password
