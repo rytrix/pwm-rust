@@ -39,7 +39,7 @@ impl State {
         let password = State::add_confirmation_password_prompt(
             state.clone(),
             String::from("Enter new vault's master password"),
-            String::from("Enter new vault's master password again"),
+            String::from("Confirm new vault's master password"),
         )?;
 
         let mut vault = state.vault.lock()?;

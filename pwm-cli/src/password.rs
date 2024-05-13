@@ -11,7 +11,7 @@ pub fn request_password(prompt: &str) -> Result<Zeroizing<String>, std::io::Erro
 
 pub fn password_confirmation() -> Result<Zeroizing<String>, std::io::Error> {
     let password1 = request_password("Enter your password")?;
-    let password2 = request_password("Enter your password again")?;
+    let password2 = request_password("Confirm your password")?;
 
     if !password1.eq(&password2) {
         return Err(std::io::Error::new(
