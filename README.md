@@ -1,6 +1,8 @@
 # pwm
 A password manager
 
+Version bumps are likely to break serialization, remaking a vault is required on a version bump (use csv export/import)
+
 # Bugs
 ?Can't close if file manager is open
 
