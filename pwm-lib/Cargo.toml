@@ -8,8 +8,6 @@ default = ["use-aes-gcm-siv"]
 pepper = []
 use-aes-gcm-siv = ["aes-gcm-siv"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 pwm-proc = {path = "../pwm-proc"}
 aead = "0.5.2"

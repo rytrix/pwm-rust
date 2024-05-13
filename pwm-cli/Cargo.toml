@@ -3,11 +3,9 @@ name = "pwm-cli"
 version = "0.2.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 pwm-lib = { path = "../pwm-lib" }
 pwm-db = { path = "../pwm-db" }
 clap = { version = "4.5.4", features = ["derive"] }
-# Check this for testing pws
+# TODO Check this for testing pws
 rpassword = "7.3.1"
