@@ -26,3 +26,5 @@ https://github.com/emilk/egui/blob/master/examples/custom_window_frame/src/main.
 Compress saved file?
 
 testing for CLI
+
+importing csv freezes gui
