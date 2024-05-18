@@ -59,7 +59,7 @@ impl State {
 
         let receiver = Self::add_password_prompt(
             state.clone(),
-            String::from("Enter new vault's master password"),
+            format!("Enter {}'s master password", file),
         )?;
         let password = receiver.recv()?;
 

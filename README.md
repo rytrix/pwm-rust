@@ -1,7 +1,7 @@
 # Pwm
 A cross platform password manager written in pure rust
 
-Uses AES encryption to keep passwords encrypted in memory at all times until it is specifically retrieved, the password manager does not have the information to decrypt unless you specifically enter your password
+Uses AES encryption to keep passwords encrypted in memory at all times until it is specifically retrieved, the password manager does not have the information to decrypt until you specifically enter your password
 
 All passwords, hashes and other critical data are zeroed out in memory after they are done being used
 
@@ -30,3 +30,5 @@ testing for CLI
 CLI has problems with names with spaces (escape characters? quotes?)
 
 Problem with saving in the gui (in sway/wlroots)
+
+importing csv freezes gui
