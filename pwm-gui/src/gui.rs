@@ -218,6 +218,8 @@ impl Gui {
             }
         };
 
+        info!("file_save selected path \"{}\"", path);
+
         if let Err(error) =
             State::save_vault_to_file(state.clone(), path.as_str(), password.as_bytes()).await
         {
@@ -235,6 +237,8 @@ impl Gui {
             Some(path) => path,
             None => return,
         };
+
+        info!("file_save_as selected path \"{}\"", path.display().to_string());
 
         match State::save_vault_to_file(
             state.clone(),
@@ -265,7 +269,13 @@ impl Gui {
                 Err(_) => return None,
             };
 
-            let password = receiver.recv().unwrap();
+            let password = match receiver.recv() {
+                Ok(password) => password,
+                Err(error) => {
+                    GuiError::display_error_or_print(state.clone(), error.to_string());
+                    return None;
+                }
+            };
 
             if let Some(prompt2) = prompt2 {
                 let prompt = format!("{} {}", prompt2, file);

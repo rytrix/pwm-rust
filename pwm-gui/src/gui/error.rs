@@ -1,4 +1,4 @@
-use std::sync::{mpsc::RecvError, Arc, PoisonError};
+use std::sync::{mpsc::{RecvError, SendError}, Arc, PoisonError};
 
 use crate::state::State;
 use log::error;
@@ -57,6 +57,12 @@ impl From<DatabaseError> for GuiError {
 
 impl From<RecvError> for GuiError {
     fn from(value: RecvError) -> Self {
+        Self::RecvFail(value.to_string())
+    }
+}
+
+impl<T> From<SendError<T>> for GuiError {
+    fn from(value: SendError<T>) -> Self {
         Self::RecvFail(value.to_string())
     }
 }

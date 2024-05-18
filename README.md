@@ -26,3 +26,7 @@ https://github.com/emilk/egui/blob/master/examples/custom_window_frame/src/main.
 Compress saved file?
 
 testing for CLI
+
+CLI has problems with names with spaces (escape characters? quotes?)
+
+Problem with saving in the gui (in sway/wlroots)
