@@ -29,6 +29,6 @@ testing for CLI
 
 CLI has problems with names with spaces (escape characters? quotes?)
 
-Problem with saving in the gui (in sway/wlroots)
+Problem with clipboard in the gui (in sway/wlroots)
 
 importing csv freezes gui
