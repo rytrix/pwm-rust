@@ -29,6 +29,6 @@ testing for CLI
 
 CLI has problems with names with spaces (escape characters? quotes?)
 
-Problem with clipboard in the gui (in sway/wlroots)
+Problem with clipboard in the gui (sway/wlroots in arch specifically)
 
 importing csv freezes gui
