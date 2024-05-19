@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use log::info;
 use pwm_db::{
     db_base::error::DatabaseError,
     db_encrypted::{forget_hash::DatabaseInterface, DatabaseEncrypted},
@@ -11,6 +12,7 @@ use crate::gui::get_file_name;
 pub struct Vault {
     db: DatabaseEncrypted,
     pub changed: bool,
+    pub path: String,
     pub name_buffer: String,
     pub insert_buffer: String,
 }
@@ -18,9 +20,13 @@ pub struct Vault {
 impl Vault {
     pub fn new(name: &str, password: &[u8]) -> Result<Self, DatabaseError> {
         let db = DatabaseEncrypted::new(password)?;
+        let path = std::env::current_exe()?;
+        let path = path.display().to_string() + "/" + name;
+        info!("New Vault with name: \"{}\" and path \"{}\"", name, path);
         Ok(Self {
             db,
             changed: true,
+            path,
             name_buffer: String::from(name),
             insert_buffer: String::new(),
         })
@@ -40,9 +46,13 @@ impl Vault {
         let path = Path::new(file);
         let name = get_file_name(path.to_path_buf());
 
+        let path = file.to_string();
+        info!("New Vault with name: \"{}\" and path \"{}\"", name, path);
+
         Ok(Self {
             db,
             changed: false,
+            path,
             name_buffer: name,
             insert_buffer: String::new(),
         })
@@ -109,7 +119,9 @@ impl Vault {
         let ciphertext = self.db.serialize_encrypted(password)?;
         std::fs::write(file, ciphertext.as_ref())?;
         self.changed = false;
+        self.path = file.to_string();
         self.name_buffer = get_file_name(Path::new(file).to_path_buf());
+        info!("File saved to file, with name \"{}\" and path \"{}\"", self.name_buffer, self.path);
 
         Ok(())
     }

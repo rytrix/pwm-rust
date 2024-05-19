@@ -59,7 +59,7 @@ impl State {
 
         let receiver = Self::add_password_prompt(
             state.clone(),
-            format!("Enter {}'s master password", file),
+            format!("Enter {}'s master password", get_file_name(file.clone().into())),
         )?;
         let password = receiver.recv()?;
 
@@ -298,7 +298,7 @@ impl State {
 
     pub fn get_prev_file(state: Arc<State>) -> Result<String, GuiError> {
         if let Some(vault) = &*state.vault.lock()? {
-            return Ok(vault.name_buffer.clone());
+            return Ok(vault.path.clone());
         }
         Err(GuiError::NoVault)
     }
