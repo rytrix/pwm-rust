@@ -5,7 +5,7 @@ use pwm_db::{
     db_base::error::DatabaseError,
     db_encrypted::{forget_hash::DatabaseInterface, DatabaseEncrypted},
 };
-use pwm_lib::aes_wrapper::AesResult;
+use pwm_lib::encryption::EncryptionResult;
 
 use crate::gui::get_file_name;
 
@@ -34,7 +34,7 @@ impl Vault {
 
     pub fn new_from_file(file: &str, password: &[u8]) -> Result<Self, DatabaseError> {
         let contents = match std::fs::read(file) {
-            Ok(contents) => match AesResult::new(contents) {
+            Ok(contents) => match EncryptionResult::new(contents) {
                 Ok(contents) => contents,
                 Err(error) => return Err(DatabaseError::InputError(error.to_string())),
             },
@@ -102,7 +102,7 @@ impl Vault {
         self.db.rename(name, new_name, password)
     }
 
-    pub fn get(&self, name: &str, password: &[u8]) -> Result<AesResult, DatabaseError> {
+    pub fn get(&self, name: &str, password: &[u8]) -> Result<EncryptionResult, DatabaseError> {
         self.db.get(name, password)
     }
 

@@ -2,7 +2,7 @@ use pwm_db::{
     db_base::error::DatabaseError,
     db_encrypted::{forget_hash::DatabaseInterface, DatabaseEncrypted},
 };
-use pwm_lib::{aes_wrapper::AesResult, zeroize::Zeroizing};
+use pwm_lib::{encryption::EncryptionResult, zeroize::Zeroizing};
 
 use crate::password::{password_confirmation, request_password};
 
@@ -24,7 +24,7 @@ impl Vault {
 
     pub fn new_from_file(file: &str) -> Result<Self, DatabaseError> {
         let contents = match std::fs::read(file) {
-            Ok(contents) => match AesResult::new(contents) {
+            Ok(contents) => match EncryptionResult::new(contents) {
                 Ok(contents) => contents,
                 Err(error) => return Err(DatabaseError::InputError(error.to_string())),
             },
@@ -331,7 +331,7 @@ impl Vault {
         Ok(())
     }
 
-    fn get(&self, name: &str) -> Result<AesResult, DatabaseError> {
+    fn get(&self, name: &str) -> Result<EncryptionResult, DatabaseError> {
         let password = match request_password("Enter the master password") {
             Ok(password) => password,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),

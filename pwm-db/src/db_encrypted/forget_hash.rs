@@ -1,4 +1,7 @@
-use pwm_lib::aes_wrapper::{aes_gcm_decrypt, aes_gcm_encrypt, AesResult};
+use pwm_lib::encryption::{
+    default::{decrypt, encrypt},
+    EncryptionResult,
+};
 
 use crate::db_base::error::DatabaseError;
 
@@ -6,22 +9,27 @@ use super::DatabaseEncrypted;
 
 pub trait DatabaseInterface {
     fn new_deserialize_encrypted(
-        serialized: &AesResult,
+        serialized: &EncryptionResult,
         password: &[u8],
     ) -> Result<DatabaseEncrypted, DatabaseError>;
     fn insert(&mut self, name: &str, data: &[u8], password: &[u8]) -> Result<(), DatabaseError>;
     fn insert_from_csv(&mut self, file: &str, password: &[u8]) -> Result<(), DatabaseError>;
     fn export_to_csv(&mut self, file: &str, password: &[u8]) -> Result<(), DatabaseError>;
     fn remove(&mut self, name: &str, password: &[u8]) -> Result<(), DatabaseError>;
-    fn replace(&mut self, name: &str, new_data: &[u8], password: &[u8]) -> Result<(), DatabaseError>;
+    fn replace(
+        &mut self,
+        name: &str,
+        new_data: &[u8],
+        password: &[u8],
+    ) -> Result<(), DatabaseError>;
     fn rename(&mut self, name: &str, new_name: &str, password: &[u8]) -> Result<(), DatabaseError>;
-    fn get(&self, name: &str, password: &[u8]) -> Result<AesResult, DatabaseError>;
-    fn serialize_encrypted(&self, password: &[u8]) -> Result<AesResult, DatabaseError>;
+    fn get(&self, name: &str, password: &[u8]) -> Result<EncryptionResult, DatabaseError>;
+    fn serialize_encrypted(&self, password: &[u8]) -> Result<EncryptionResult, DatabaseError>;
 }
 
 impl DatabaseInterface for DatabaseEncrypted {
     fn new_deserialize_encrypted(
-        serialized: &AesResult,
+        serialized: &EncryptionResult,
         password: &[u8],
     ) -> Result<DatabaseEncrypted, DatabaseError> {
         let (db, _hash) = Self::new_deserialize_encrypted_internal(serialized, password)?;
@@ -34,7 +42,7 @@ impl DatabaseInterface for DatabaseEncrypted {
         }
 
         let hash = Self::hash_password_argon2(password)?;
-        let data = aes_gcm_encrypt(&hash, data)?;
+        let data = encrypt(data, &hash)?;
 
         self.db.insert(name, data)?;
 
@@ -52,7 +60,7 @@ impl DatabaseInterface for DatabaseEncrypted {
                 Ok(record) => {
                     if let (Some(key), Some(data)) = (record.get(0), record.get(1)) {
                         let hash = Self::hash_password_argon2(password)?;
-                        let data = aes_gcm_encrypt(&hash, data.as_bytes())?;
+                        let data = encrypt(data.as_bytes(), &hash)?;
 
                         match self.db.insert(key, data) {
                             Ok(()) => (),
@@ -81,7 +89,7 @@ impl DatabaseInterface for DatabaseEncrypted {
             let ciphertext = self.db.get(name.as_str())?;
             let hash = Self::hash_password_argon2_with_salt(password, ciphertext.get_salt_slice())?;
 
-            let result = aes_gcm_decrypt(hash.get_hash(), ciphertext)?;
+            let result = decrypt(ciphertext, &hash)?;
 
             writer.write_record([name.as_bytes(), result.as_slice()])?;
         }
@@ -99,13 +107,18 @@ impl DatabaseInterface for DatabaseEncrypted {
         Ok(())
     }
 
-    fn replace(&mut self, name: &str, new_data: &[u8], password: &[u8]) -> Result<(), DatabaseError> {
+    fn replace(
+        &mut self,
+        name: &str,
+        new_data: &[u8],
+        password: &[u8],
+    ) -> Result<(), DatabaseError> {
         if !self.hash_password_and_compare(password) {
             return Err(DatabaseError::InvalidPassword);
         }
 
         let hash = Self::hash_password_argon2(password)?;
-        let data = aes_gcm_encrypt(&hash, new_data)?;
+        let data = encrypt(new_data, &hash)?;
 
         self.db.replace(name, data)?;
 
@@ -122,7 +135,7 @@ impl DatabaseInterface for DatabaseEncrypted {
         Ok(())
     }
 
-    fn get(&self, name: &str, password: &[u8]) -> Result<AesResult, DatabaseError> {
+    fn get(&self, name: &str, password: &[u8]) -> Result<EncryptionResult, DatabaseError> {
         if !self.hash_password_and_compare(password) {
             return Err(DatabaseError::InvalidPassword);
         }
@@ -130,12 +143,12 @@ impl DatabaseInterface for DatabaseEncrypted {
         let ciphertext = self.db.get(name)?;
         let hash = Self::hash_password_argon2_with_salt(password, ciphertext.get_salt_slice())?;
 
-        let result = aes_gcm_decrypt(hash.get_hash(), ciphertext)?;
+        let result = decrypt(ciphertext, &hash)?;
 
         Ok(result)
     }
 
-    fn serialize_encrypted(&self, password: &[u8]) -> Result<AesResult, DatabaseError> {
+    fn serialize_encrypted(&self, password: &[u8]) -> Result<EncryptionResult, DatabaseError> {
         let data = self.serialize()?;
 
         if !self.hash_password_and_compare(password) {
@@ -143,7 +156,7 @@ impl DatabaseInterface for DatabaseEncrypted {
         }
 
         let hash = Self::hash_password_argon2(password)?;
-        let ciphertext = aes_gcm_encrypt(&hash, data.as_slice())?;
+        let ciphertext = encrypt(data.as_slice(), &hash)?;
 
         Ok(ciphertext)
     }

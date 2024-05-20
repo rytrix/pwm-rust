@@ -1,9 +1,14 @@
+use crate::encryption::default::{decrypt, encrypt};
+use crate::encryption::EncryptionResult;
 use crate::hash::argon2_wrapper::{argon2_hash_password, argon2_hash_password_with_salt};
 
-use crate::aes_wrapper::{aes_gcm_decrypt, aes_gcm_encrypt, AesResult};
 use crate::zeroize::Zeroizing;
 
-pub fn encrypt_file(file: String, output: Option<String>, password: &[u8]) -> Result<(), std::io::Error> {
+pub fn encrypt_file(
+    file: String,
+    output: Option<String>,
+    password: &[u8],
+) -> Result<(), std::io::Error> {
     let hash = match argon2_hash_password(password) {
         Ok(hash) => hash,
         Err(error) => {
@@ -15,7 +20,7 @@ pub fn encrypt_file(file: String, output: Option<String>, password: &[u8]) -> Re
     };
 
     let contents = Zeroizing::new(std::fs::read(&file)?);
-    let cipher_contents = match aes_gcm_encrypt(&hash, contents.as_slice()) {
+    let cipher_contents = match encrypt(contents.as_slice(), &hash) {
         Ok(contents) => contents,
         Err(error) => {
             return Err(std::io::Error::new(
@@ -35,11 +40,22 @@ pub fn encrypt_file(file: String, output: Option<String>, password: &[u8]) -> Re
     Ok(())
 }
 
-pub fn decrypt_file(file: String, output: Option<String>, password: &[u8]) -> Result<(), std::io::Error> {
-    let contents = AesResult::new(std::fs::read(&file)?)?;
+pub fn decrypt_file(
+    file: String,
+    output: Option<String>,
+    password: &[u8],
+) -> Result<(), std::io::Error> {
+    let contents = match EncryptionResult::new(std::fs::read(&file)?) {
+        Ok(contents) => contents,
+        Err(error) => {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                error.to_string(),
+            ))
+        }
+    };
 
-    let hash = match argon2_hash_password_with_salt(password, contents.get_salt_slice())
-    {
+    let hash = match argon2_hash_password_with_salt(password, contents.get_salt_slice()) {
         Ok(hash) => hash,
         Err(error) => {
             return Err(std::io::Error::new(
@@ -49,7 +65,7 @@ pub fn decrypt_file(file: String, output: Option<String>, password: &[u8]) -> Re
         }
     };
 
-    let cipher_contents = match aes_gcm_decrypt(hash.get_hash(), &contents) {
+    let cipher_contents = match decrypt(&contents, &hash) {
         Ok(contents) => contents,
         Err(error) => {
             return Err(std::io::Error::new(

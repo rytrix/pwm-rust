@@ -1,6 +1,6 @@
 use crate::db_base::{error::DatabaseError, Database};
 use pwm_lib::{
-    aes_wrapper::{aes_gcm_decrypt, AesResult},
+    encryption::{default::decrypt, EncryptionResult},
     hash::{
         argon2_wrapper::{argon2_hash_password, argon2_hash_password_with_salt},
         compare_hash,
@@ -11,7 +11,7 @@ use pwm_lib::{
 };
 
 pub struct DatabaseEncrypted {
-    db: Database<AesResult>,
+    db: Database<EncryptionResult>,
     confirmation_hash: HashResult,
 }
 
@@ -41,7 +41,7 @@ impl DatabaseEncrypted {
             return Err(DatabaseError::InvalidPassword);
         }
 
-        let db: Database<AesResult> =
+        let db: Database<EncryptionResult> =
             match bincode::deserialize(&serialized[..serialized.len() - 64]) {
                 Ok(db) => db,
                 Err(_error) => return Err(DatabaseError::FailedDeserialize),
@@ -54,12 +54,12 @@ impl DatabaseEncrypted {
     }
 
     fn new_deserialize_encrypted_internal(
-        serialized: &AesResult,
+        serialized: &EncryptionResult,
         password: &[u8],
     ) -> Result<(Self, HashResult), DatabaseError> {
         let hash = Self::hash_password_argon2_with_salt(password, serialized.get_salt_slice())?;
 
-        let plaintext = match aes_gcm_decrypt(hash.get_hash(), serialized) {
+        let plaintext = match decrypt(serialized, &hash) {
             Ok(plaintext) => plaintext,
             Err(error) => return Err(DatabaseError::FailedAes(error.to_string())),
         };

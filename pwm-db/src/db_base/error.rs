@@ -1,4 +1,4 @@
-use pwm_lib::aes_wrapper::AesError;
+use pwm_lib::encryption::EncryptionError;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum DatabaseError {
@@ -43,8 +43,8 @@ impl From<csv::Error> for DatabaseError {
     }
 }
 
-impl From<AesError> for DatabaseError {
-    fn from(value: AesError) -> Self {
+impl From<EncryptionError> for DatabaseError {
+    fn from(value: EncryptionError) -> Self {
         Self::FailedAes(value.to_string())
     }
 }

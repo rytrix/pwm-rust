@@ -4,15 +4,19 @@ version = "0.2.0"
 edition = "2021"
 
 [features]
-default = ["use-aes-gcm-siv"]
+default = ["use-aes-gcm-siv", "use-aes-default"]
 pepper = []
 use-aes-gcm-siv = ["aes-gcm-siv"]
+
+use-aes-default = []
+use-chacha20-default = []
 
 [dependencies]
 pwm-proc = {path = "../pwm-proc"}
 aead = "0.5.2"
 aes-gcm = "0.10.3"
 aes-gcm-siv = { version = "0.11.1", optional = true }
+chacha20poly1305 = "0.10.1"
 argon2 = "0.5.3"
 pbkdf2 = "0.12.2"
 scrypt = "0.11.0"
