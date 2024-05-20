@@ -4,7 +4,7 @@ version = "0.2.0"
 edition = "2021"
 
 [features]
-default = ["use-aes-gcm-siv", "use-aes-default"]
+default = ["use-aes-gcm-siv", "use-chacha20-default"]
 pepper = []
 use-aes-gcm-siv = ["aes-gcm-siv"]
 
