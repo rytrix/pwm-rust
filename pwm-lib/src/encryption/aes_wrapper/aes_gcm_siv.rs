@@ -9,7 +9,7 @@ use aes_gcm_siv::{
 
 impl From<aes_gcm::Error> for EncryptionError {
     fn from(_value: aes_gcm::Error) -> Self {
-        Self::new("Failed AES, invalid key")
+        Self::new("Failed encryption, invalid key")
     }
 }
 

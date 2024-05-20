@@ -7,19 +7,16 @@ pub mod chacha20_wrapper;
 pub mod default {
     use crate::hash::HashResult;
 
-    use super::{
-        aes_wrapper::{aes_decrypt, aes_encrypt},
-        EncryptionError, EncryptionResult,
-    };
+    use super::{EncryptionError, EncryptionResult};
 
     pub fn encrypt(
         plaintext: &[u8],
         key: &HashResult,
     ) -> Result<EncryptionResult, EncryptionError> {
         #[cfg(feature = "use-aes-default")]
-        let result = aes_encrypt(plaintext, key);
+        let result = super::aes_wrapper::aes_encrypt(plaintext, key);
         #[cfg(feature = "use-chacha20-default")]
-        let result = super::chacha20_wrapper::ecrypt(plaintext, key);
+        let result = super::chacha20_wrapper::chacha20_encrypt(plaintext, key);
 
         result
     }
@@ -29,11 +26,38 @@ pub mod default {
         key: &HashResult,
     ) -> Result<EncryptionResult, EncryptionError> {
         #[cfg(feature = "use-aes-default")]
-        let result = aes_decrypt(ciphertext, key);
+        let result = super::aes_wrapper::aes_decrypt(ciphertext, key);
         #[cfg(feature = "use-chacha20-default")]
-        let result = super::chacha20_wrapper::decrypt(ciphertext, key);
+        let result = super::chacha20_wrapper::chacha20_decrypt(ciphertext, key);
 
         result
+    }
+
+    #[cfg(test)]
+    mod test {
+        use super::{decrypt, encrypt};
+        use crate::hash::pbkdf2_wrapper::pbkdf2_hash_password;
+
+        #[test]
+        fn test_default_encryption() {
+            let password = b"hunter42";
+            let plaintext = b"hello world121234131";
+
+            let hash = pbkdf2_hash_password(password).unwrap();
+
+            let ciphertext = encrypt(plaintext, &hash).unwrap();
+
+            let plaintext_result = decrypt(&ciphertext, &hash).unwrap();
+
+            let matching = plaintext
+                .as_ref()
+                .iter()
+                .zip(plaintext_result.as_ref())
+                .filter(|&(a, b)| a == b)
+                .count();
+
+            assert!(matching == plaintext.len())
+        }
     }
 }
 

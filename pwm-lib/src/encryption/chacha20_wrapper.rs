@@ -7,17 +7,19 @@ use crate::hash::HashResult;
 
 use super::{EncryptionError, EncryptionResult};
 
-pub fn encrypt(plaintext: &[u8], key: &HashResult) -> Result<EncryptionResult, EncryptionError> {
+pub fn chacha20_encrypt(plaintext: &[u8], key: &HashResult) -> Result<EncryptionResult, EncryptionError> {
     let cipher = XChaCha20Poly1305::new(key.get_hash().into());
     let nonce = XChaCha20Poly1305::generate_nonce(&mut OsRng); // 192-bits; unique per message
     let mut ciphertext = cipher.encrypt(&nonce, plaintext)?;
     ciphertext.extend_from_slice(nonce.as_slice());
+    ciphertext.extend_from_slice(key.get_salt());
 
     EncryptionResult::new(ciphertext)
 }
 
-pub fn decrypt(ciphertext: &[u8], key: &HashResult) -> Result<EncryptionResult, EncryptionError> {
+pub fn chacha20_decrypt(ciphertext: &EncryptionResult, key: &HashResult) -> Result<EncryptionResult, EncryptionError> {
     let cipher = XChaCha20Poly1305::new(key.get_hash().into());
+    let ciphertext = ciphertext.get_crypt_slice();
 
     let nonce = &ciphertext[ciphertext.len() - 24..];
     let ciphertext = &ciphertext[..ciphertext.len() - 24];
@@ -31,7 +33,7 @@ pub fn decrypt(ciphertext: &[u8], key: &HashResult) -> Result<EncryptionResult, 
 mod tests {
     use crate::hash::pbkdf2_wrapper::pbkdf2_hash_password;
 
-    use super::{decrypt, encrypt};
+    use super::{chacha20_decrypt, chacha20_encrypt};
 
     #[test]
     fn test_encrypt_decrypt() {
@@ -40,8 +42,8 @@ mod tests {
 
         let hash = pbkdf2_hash_password(password).unwrap();
 
-        let ciphertext = encrypt(plaintext, &hash).unwrap();
-        let decrypted = decrypt(ciphertext.as_slice(), &hash).unwrap();
+        let ciphertext = chacha20_encrypt(plaintext, &hash).unwrap();
+        let decrypted = chacha20_decrypt(&ciphertext, &hash).unwrap();
 
         // eprintln!("{:?}\n{:?}", plaintext, decrypted);
         assert_eq!(plaintext, decrypted.as_slice());
