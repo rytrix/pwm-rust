@@ -351,7 +351,15 @@ impl Gui {
                     }
                 };
 
-                *clipboard = Some(Zeroizing::new(random_password(length)));
+                let password = match random_password(length) {
+                    Ok(password) => password,
+                    Err(error) => {
+                        GuiError::display_error_or_print(state.clone(), error.to_string());
+                        return;
+                    }
+                };
+
+                *clipboard = Some(Zeroizing::new(password));
             }
             Err(error) => {
                 GuiError::display_error_or_print(state.clone(), error.to_string());

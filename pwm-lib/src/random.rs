@@ -1,6 +1,6 @@
 use passwords::PasswordGenerator;
 
-pub fn random_password(length: usize) -> String {
+pub fn random_password(length: usize) -> Result<String, &'static str> {
     let pg = PasswordGenerator {
         length,
         numbers: true,
@@ -13,7 +13,7 @@ pub fn random_password(length: usize) -> String {
     };
 
     match pg.generate_one() {
-        Ok(value) => value,
-        Err(value) => value.to_string(),
+        Ok(value) => Ok(value),
+        Err(error) => Err(error),
     }
 }
