@@ -31,4 +31,4 @@ CLI has problems with names with spaces (escape characters? quotes?)
 
 Problem with clipboard in the gui (sway/wlroots in arch specifically)
 
-importing csv freezes gui
+importing csv freezes gui - probably worth using the same salt/hash for all the db entries
