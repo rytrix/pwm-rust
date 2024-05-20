@@ -286,7 +286,6 @@ impl Vault {
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
         self.db.export_to_csv(file, password.as_bytes())?;
-        self.changed = true;
 
         Ok(())
     }
