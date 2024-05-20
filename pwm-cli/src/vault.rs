@@ -2,7 +2,7 @@ use pwm_db::{
     db_base::error::DatabaseError,
     db_encrypted::{forget_hash::DatabaseInterface, DatabaseEncrypted},
 };
-use pwm_lib::{encryption::EncryptionResult, zeroize::Zeroizing};
+use pwm_lib::{encryption::EncryptionResult, random::random_password, zeroize::Zeroizing};
 
 use crate::password::{password_confirmation, request_password};
 
@@ -159,14 +159,14 @@ impl Vault {
                             println!("Expected a key")
                         }
                     }
-                    "list" | "ls" =>  {
+                    "list" | "ls" => {
                         match self.list(itr.next()) {
                             Ok(()) => (),
                             Err(error) => {
                                 println!("Failed to list: {}", error.to_string());
                             }
                         };
-                    },
+                    }
                     "search" => {
                         match self.list(itr.next()) {
                             Ok(()) => (),
@@ -180,6 +180,13 @@ impl Vault {
                             self.serialize_and_save(value);
                         } else {
                             println!("Expected a filename");
+                        }
+                    }
+                    "pw" => {
+                        if let Some(value) = itr.next() {
+                            Self::generate_password(value);
+                        } else {
+                            println!("Expected a length");
                         }
                     }
                     "exit" | "quit" | "q" => {
@@ -393,6 +400,24 @@ impl Vault {
         self.changed = false;
     }
 
+    fn generate_password(length: &str) {
+        let length = match length.parse::<usize>() {
+            Ok(length) => length,
+            Err(_error) => {
+                println!("Invalid length input");
+                return;
+            }
+        };
+        let password = match random_password(length) {
+            Ok(password) => password,
+            Err(error) => {
+                println!("Failed to generate password: {}", error);
+                return;
+            }
+        };
+        println!("Generated: \"{}\"", password);
+    }
+
     fn help() {
         println!(
             "Vault:
@@ -406,7 +431,8 @@ impl Vault {
     get     <key>         - retrieve an element
     save    <file>        - save to a file
     list    <pattern?>    - list all keys
-    search  <pattern?>    - list all keys
+    search  <pattern?>    - search all keys
+    pw      <length>      - generate a password
     exit                  - exit the program"
         )
     }
