@@ -14,9 +14,6 @@ Version bumps are likely to break serialization, remaking a vault is required on
 # Bugs
 ?Can't close if file manager is open
 
-# Not active
-Delete keep_hash, currently depreciated
-
 # Todo
 Clear password from clipboard after 10 seconds **Not possible on wayland**
 

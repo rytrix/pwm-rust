@@ -3,7 +3,7 @@ use std::path::Path;
 use log::info;
 use pwm_db::{
     db_base::error::DatabaseError,
-    db_encrypted::{forget_hash::DatabaseInterface, DatabaseEncrypted},
+    db_encrypted::{db_interface::DatabaseInterface, DatabaseEncrypted},
 };
 use pwm_lib::encryption::EncryptionResult;
 

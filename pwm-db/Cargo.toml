@@ -4,7 +4,6 @@ version = "0.2.0"
 edition = "2021"
 
 [features]
-keep-hash = []
 
 [dependencies]
 pwm-lib = { path = "../pwm-lib" }

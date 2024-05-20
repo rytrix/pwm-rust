@@ -150,18 +150,11 @@ impl DatabaseEncrypted {
     // End Utility
 }
 
-#[cfg(feature = "keep-hash")]
-#[deprecated(
-    since = "0.0.1",
-    note = "Please don't ever use this it uses the same salt for EVERYTHING!"
-)]
-pub mod keep_hash;
-
-pub mod forget_hash;
+pub mod db_interface;
 
 #[cfg(test)]
 mod test_forget {
-    use crate::db_encrypted::forget_hash::DatabaseInterface;
+    use crate::db_encrypted::db_interface::DatabaseInterface;
 
     use super::DatabaseEncrypted;
 
