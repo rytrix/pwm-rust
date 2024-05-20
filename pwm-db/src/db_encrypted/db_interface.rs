@@ -1,7 +1,9 @@
-use pwm_lib::encryption::{
+#[cfg(feature = "use-compression")]
+use lz4_flex::compress_prepend_size;
+use pwm_lib::{encryption::{
     default::{decrypt, encrypt},
     EncryptionResult,
-};
+}, zeroize::Zeroizing};
 
 use crate::db_base::error::DatabaseError;
 
@@ -154,6 +156,9 @@ impl DatabaseInterface for DatabaseEncrypted {
         if !self.hash_password_and_compare(password) {
             return Err(DatabaseError::InvalidPassword);
         }
+
+        #[cfg(feature = "use-compression")]
+        let data = Zeroizing::new(compress_prepend_size(data.as_slice()));
 
         let hash = Self::hash_password_argon2(password)?;
         let ciphertext = encrypt(data.as_slice(), &hash)?;

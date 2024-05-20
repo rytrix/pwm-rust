@@ -4,6 +4,8 @@ version = "0.2.0"
 edition = "2021"
 
 [features]
+default = ["use-compression"]
+use-compression = ["lz4_flex"]
 
 [dependencies]
 pwm-lib = { path = "../pwm-lib" }
@@ -11,3 +13,4 @@ serde = { version = "1.0.198", features = ["derive"] }
 bincode = "1.3.3" 
 csv = "1.3.0"
 fuzzy-matcher = "0.3.7"
+lz4_flex = { version = "0.11.3", optional = true }

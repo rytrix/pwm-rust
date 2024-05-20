@@ -1,4 +1,6 @@
 use crate::db_base::{error::DatabaseError, Database};
+#[cfg(feature = "use-compression")]
+use lz4_flex::decompress_size_prepended;
 use pwm_lib::{
     encryption::{default::decrypt, EncryptionResult},
     hash::{
@@ -61,7 +63,13 @@ impl DatabaseEncrypted {
 
         let plaintext = match decrypt(serialized, &hash) {
             Ok(plaintext) => plaintext,
-            Err(error) => return Err(DatabaseError::FailedAes(error.to_string())),
+            Err(error) => return Err(DatabaseError::FailedEncryption(error.to_string())),
+        };
+
+        #[cfg(feature = "use-compression")]
+        let plaintext = match decompress_size_prepended(plaintext.as_slice()) {
+            Ok(serialized) => EncryptionResult::new(serialized)?,
+            Err(error) => return Err(DatabaseError::CompressionError(error.to_string())),
         };
 
         let result = Self::new_deserialize(plaintext.as_slice(), password)?;
@@ -224,5 +232,17 @@ mod test_forget {
         assert_eq!(b"password", pass.as_slice());
         let pass = db.get("user2", pw).unwrap();
         assert_eq!(b"password,,,broken?", pass.as_slice());
+    }
+
+
+    #[cfg(feature = "use-compression")]
+    #[test]
+    fn test_compression() {
+        use lz4_flex::{compress_prepend_size, decompress_size_prepended};
+        let input: &[u8] = b"Hello people, what's up?";
+        let compressed = compress_prepend_size(input);
+        let uncompressed = decompress_size_prepended(&compressed).unwrap();
+
+        assert_eq!(input, uncompressed)
     }
 }
