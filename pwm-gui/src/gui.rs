@@ -14,7 +14,7 @@ use log::{error, info, warn};
 use pwm_lib::{
     crypt_file::{decrypt_file, encrypt_file},
     random::random_password,
-    zeroize::{Zeroize, Zeroizing},
+    zeroize::Zeroizing,
 };
 
 pub struct Gui {
@@ -65,7 +65,7 @@ impl eframe::App for Gui {
                     if let Some(result) = &mut *clipboard {
                         // println!("{}", result.as_str());
                         let string = result.to_string();
-                        o.copied_text.zeroize();
+                        // o.copied_text.zeroize();
                         o.copied_text = string;
                         *clipboard = None;
                     }
