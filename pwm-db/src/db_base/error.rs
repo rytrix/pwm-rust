@@ -5,7 +5,7 @@ pub enum DatabaseError {
     NotFound,
     AlreadyExists,
     FailedHash(String),
-    FailedAes(String),
+    FailedEncryption(String),
     LockError,
     InvalidPassword,
     InputError(String),
@@ -14,6 +14,7 @@ pub enum DatabaseError {
     FailedDeserialize,
     InvalidCsv(String),
     IoError(String),
+    CompressionError(String),
 }
 
 impl std::fmt::Display for DatabaseError {
@@ -22,7 +23,7 @@ impl std::fmt::Display for DatabaseError {
             Self::NotFound => f.write_str("Not found"),
             Self::AlreadyExists => f.write_str("Already exists"),
             Self::FailedHash(msg) => f.write_fmt(std::format_args!("Failed hash: {}", msg)),
-            Self::FailedAes(msg) => f.write_fmt(std::format_args!("{}", msg)),
+            Self::FailedEncryption(msg) => f.write_fmt(std::format_args!("{}", msg)),
             Self::LockError => f.write_str("Failed to get mutex lock on db"),
             Self::InvalidPassword => f.write_str("Invalid password provided"),
             Self::InputError(msg) => f.write_fmt(std::format_args!("Input error: {}", msg)),
@@ -31,6 +32,7 @@ impl std::fmt::Display for DatabaseError {
             Self::FailedDeserialize => f.write_str("Failed to deserialize"),
             Self::InvalidCsv(msg) => f.write_fmt(std::format_args!("Csv error: {}", msg)),
             Self::IoError(msg) => f.write_fmt(std::format_args!("Io error: {}", msg)),
+            Self::CompressionError(msg) => f.write_fmt(std::format_args!("Compression error: {}", msg)),
         };
     }
 }
@@ -45,7 +47,7 @@ impl From<csv::Error> for DatabaseError {
 
 impl From<EncryptionError> for DatabaseError {
     fn from(value: EncryptionError) -> Self {
-        Self::FailedAes(value.to_string())
+        Self::FailedEncryption(value.to_string())
     }
 }
 
