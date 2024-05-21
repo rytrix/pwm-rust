@@ -56,8 +56,6 @@ impl Vault {
                 }
             };
 
-            // TODO spaces in names
-            // let mut itr = input.split_whitespace();
             let parser = Parser::new(input.as_str());
             let mut itr = parser.iter();
             

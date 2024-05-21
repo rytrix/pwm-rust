@@ -20,12 +20,8 @@ Clear password from clipboard after 10 seconds **Not possible on wayland**
 Custom title bar:
 https://github.com/emilk/egui/blob/master/examples/custom_window_frame/src/main.rs
 
-testing for CLI
+Problem with clipboard in the gui (archlinux problem lol)
 
-CLI has problems with names with spaces (escape characters? quotes?)
-
-Problem with clipboard in the gui (sway/wlroots in arch specifically)
-
-?importing csv freezes gui - probably worth using the same salt/hash for all the db entries
+?importing csv freezes gui
 
 drag drop vaults
