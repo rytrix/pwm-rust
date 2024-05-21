@@ -1,5 +1,6 @@
 mod password;
 mod vault;
+mod parser;
 
 use crate::{
     password::{password_confirmation, request_password},
