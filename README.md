@@ -22,6 +22,6 @@ https://github.com/emilk/egui/blob/master/examples/custom_window_frame/src/main.
 
 Problem with clipboard in the gui (archlinux problem lol)
 
-?importing csv freezes gui
+importing csv freezes gui, maybe buffer the db? or keep track of the previous state
 
 drag drop vaults
