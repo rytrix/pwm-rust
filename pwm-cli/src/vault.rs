@@ -5,6 +5,7 @@ use pwm_db::{
 use pwm_lib::{encryption::EncryptionResult, random::random_password, zeroize::Zeroizing};
 
 use crate::password::{password_confirmation, request_password};
+use crate::parser::Parser;
 
 pub struct Vault {
     db: DatabaseEncrypted,
@@ -56,7 +57,10 @@ impl Vault {
             };
 
             // TODO spaces in names
-            let mut itr = input.split_whitespace();
+            // let mut itr = input.split_whitespace();
+            let parser = Parser::new(input.as_str());
+            let mut itr = parser.iter();
+            
             if let Some(value) = itr.next() {
                 match value {
                     "help" | "h" => {
