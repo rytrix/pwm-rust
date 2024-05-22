@@ -20,8 +20,15 @@ use pwm_lib::{
 pub struct Gui {
     scale: f32,
     update_scale: bool,
-    show_confirmation_dialog: bool,
+
+    // Exit confirmation if a vault was modified
+    show_exit_confirmation_dialog: bool,
     allowed_to_close: bool,
+
+    // New vault confirmation if a vault was modified
+    show_new_vault_confirmation_dialog: bool,
+    create_new_vault_confirmed: bool,
+
     state: Arc<State>,
 }
 
@@ -30,8 +37,13 @@ impl Default for Gui {
         Self {
             scale: 2.0,
             update_scale: true,
-            show_confirmation_dialog: false,
+
+            show_exit_confirmation_dialog: false,
             allowed_to_close: false,
+
+            show_new_vault_confirmation_dialog: false,
+            create_new_vault_confirmed: false,
+
             state: Arc::new(State::default()),
         }
     }
@@ -44,15 +56,26 @@ impl eframe::App for Gui {
                 if !self.allowed_to_close {
                     if Gui::was_vault_modified(self.state.clone()) {
                         ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
-                        self.show_confirmation_dialog = true;
+                        self.show_exit_confirmation_dialog = true;
                     }
                 }
             }
 
-            if self.show_confirmation_dialog {
+            if self.show_exit_confirmation_dialog {
                 if let Err(error) = self.display_exit_confirmation(ctx) {
                     GuiError::display_error_or_print(self.state.clone(), error.to_string());
                 }
+            }
+
+            if self.show_new_vault_confirmation_dialog {
+                if let Err(error) = self.display_new_vault_confirmation(ctx) {
+                    GuiError::display_error_or_print(self.state.clone(), error.to_string());
+                }
+            }
+
+            if self.create_new_vault_confirmed {
+                tokio::spawn(Gui::file_new_no_check(self.state.clone()));
+                self.create_new_vault_confirmed = false;
             }
 
             if self.update_scale {
@@ -70,7 +93,7 @@ impl eframe::App for Gui {
                 }
             });
 
-            if let Err(error) = Gui::handle_keybinds(self.state.clone(), ctx) {
+            if let Err(error) = self.handle_keybinds(ctx) {
                 GuiError::display_error_or_print(self.state.clone(), error.to_string());
             }
 
@@ -146,10 +169,19 @@ impl Gui {
         file
     }
 
-    async fn file_new(state: Arc<State>) {
+    async fn file_new_no_check(state: Arc<State>) {
         let error = State::create_vault(state.clone()).await;
         if let Err(error) = error {
             GuiError::display_error_or_print(state, error.to_string());
+        }
+    }
+
+    // Calls tokio::spawn internally
+    fn file_new(&mut self, state: Arc<State>) {
+        if Gui::was_vault_modified(state.clone()) {
+            self.show_new_vault_confirmation_dialog = true;
+        } else {
+            tokio::spawn(Gui::file_new_no_check(state));
         }
     }
 
@@ -236,7 +268,10 @@ impl Gui {
             None => return,
         };
 
-        info!("file_save_as selected path \"{}\"", path.display().to_string());
+        info!(
+            "file_save_as selected path \"{}\"",
+            path.display().to_string()
+        );
 
         match State::save_vault_to_file(
             state.clone(),
@@ -456,7 +491,7 @@ impl Gui {
                                 .add_sized(Vec2::new(15.0, 15.0), egui::Button::new("Yes"))
                                 .clicked()
                             {
-                                self.show_confirmation_dialog = false;
+                                self.show_exit_confirmation_dialog = false;
                                 self.allowed_to_close = true;
                                 columns[0]
                                     .ctx()
@@ -467,8 +502,45 @@ impl Gui {
                                 .add_sized(Vec2::new(15.0, 15.0), egui::Button::new("No"))
                                 .clicked()
                             {
-                                self.show_confirmation_dialog = false;
+                                self.show_exit_confirmation_dialog = false;
                                 self.allowed_to_close = false;
+                            }
+                        });
+                    },
+                );
+            });
+        Ok(())
+    }
+
+    fn display_new_vault_confirmation(&mut self, ctx: &egui::Context) -> Result<(), GuiError> {
+        egui::Window::new("")
+            .collapsible(false)
+            .auto_sized()
+            .resizable(false)
+            .title_bar(false)
+            .show(ctx, |ui| {
+                ui.allocate_ui_with_layout(
+                    egui::Vec2 { x: 150.0, y: 50.0 },
+                    Layout::top_down(egui::Align::Center),
+                    |ui| {
+                        ui.label("Vault has been modified");
+                        ui.label("Create new vault anyways?");
+
+                        ui.columns(2, |columns| {
+                            if columns[0]
+                                .add_sized(Vec2::new(15.0, 15.0), egui::Button::new("Yes"))
+                                .clicked()
+                            {
+                                self.show_new_vault_confirmation_dialog = false;
+                                self.create_new_vault_confirmed = true;
+                            }
+
+                            if columns[1]
+                                .add_sized(Vec2::new(15.0, 15.0), egui::Button::new("No"))
+                                .clicked()
+                            {
+                                self.show_new_vault_confirmation_dialog = false;
+                                self.create_new_vault_confirmed = false;
                             }
                         });
                     },
@@ -481,7 +553,7 @@ impl Gui {
         ui.horizontal(|ui| {
             ui.menu_button("File", |ui| {
                 if ui.button("Create").clicked() {
-                    tokio::spawn(Gui::file_new(self.state.clone()));
+                    self.file_new(self.state.clone());
                     ui.close_menu();
                 }
                 if ui.button("Open").clicked() {
@@ -755,17 +827,17 @@ impl Gui {
         Ok(())
     }
 
-    fn handle_keybinds(state: Arc<State>, ctx: &egui::Context) -> Result<(), GuiError> {
+    fn handle_keybinds(&mut self, ctx: &egui::Context) -> Result<(), GuiError> {
         if ctx.input(|i| i.modifiers.matches_exact(Modifiers::CTRL) && i.key_pressed(Key::N)) {
-            tokio::spawn(Gui::file_new(state.clone()));
+            self.file_new(self.state.clone());
             info!("File New");
         }
         if ctx.input(|i| i.modifiers.matches_exact(Modifiers::CTRL) && i.key_pressed(Key::O)) {
-            tokio::spawn(Gui::file_open(state.clone()));
+            tokio::spawn(Gui::file_open(self.state.clone()));
             info!("File Open");
         }
         if ctx.input(|i| i.modifiers.matches_exact(Modifiers::CTRL) && i.key_pressed(Key::S)) {
-            tokio::spawn(Gui::file_save(state.clone()));
+            tokio::spawn(Gui::file_save(self.state.clone()));
             info!("File Save");
         }
         if ctx.input(|i| {
@@ -773,15 +845,15 @@ impl Gui {
                 .matches_exact(Modifiers::CTRL | Modifiers::SHIFT)
                 && i.key_pressed(Key::S)
         }) {
-            tokio::spawn(Gui::file_save_as(state.clone()));
+            tokio::spawn(Gui::file_save_as(self.state.clone()));
             info!("File Save as");
         }
         if ctx.input(|i| i.modifiers.matches_exact(Modifiers::CTRL) && i.key_pressed(Key::E)) {
-            tokio::spawn(Gui::encrypt_file(state.clone()));
+            tokio::spawn(Gui::encrypt_file(self.state.clone()));
             info!("Encrypt File");
         }
         if ctx.input(|i| i.modifiers.matches_exact(Modifiers::CTRL) && i.key_pressed(Key::D)) {
-            tokio::spawn(Gui::encrypt_file(state.clone()));
+            tokio::spawn(Gui::encrypt_file(self.state.clone()));
             info!("Decrypt File");
         }
 
