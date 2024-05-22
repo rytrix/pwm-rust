@@ -10,3 +10,5 @@ https://github.com/emilk/egui/blob/master/examples/custom_window_frame/src/main.
 importing csv freezes gui, maybe buffer the db? or keep track of the previous state
 
 drag drop vaults
+
+prints to the terminal when importing things that already exist
