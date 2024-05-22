@@ -10,18 +10,3 @@ Passwords are sent to the system clipboard and are never visually visible, clear
 # Warning
 
 Version bumps are likely to break serialization, remaking a vault is required on a version bump (use csv export/import)
-
-# Bugs
-?Can't close if file manager is open
-
-# Todo
-Clear password from clipboard after 10 seconds **Not possible on wayland**
-
-Custom title bar:
-https://github.com/emilk/egui/blob/master/examples/custom_window_frame/src/main.rs
-
-Problem with clipboard in the gui (archlinux problem lol)
-
-importing csv freezes gui, maybe buffer the db? or keep track of the previous state
-
-drag drop vaults
