@@ -12,3 +12,5 @@ importing csv freezes gui, maybe buffer the db? or keep track of the previous st
 drag drop vaults
 
 prints to the terminal when importing things that already exist
+
+copy to clipboard in CLI
