@@ -63,15 +63,12 @@ impl eframe::App for Gui {
             ui.output_mut(|o| {
                 if let Ok(mut clipboard) = self.state.clipboard_string.lock() {
                     if let Some(result) = &mut *clipboard {
-                        // println!("{}", result.as_str());
-                        let string = result.to_string();
                         o.copied_text.zeroize();
-                        o.copied_text = string;
+                        o.copied_text = result.to_string();
                         *clipboard = None;
                     }
                 }
             });
-
 
             if let Err(error) = Gui::handle_keybinds(self.state.clone(), ctx) {
                 GuiError::display_error_or_print(self.state.clone(), error.to_string());
