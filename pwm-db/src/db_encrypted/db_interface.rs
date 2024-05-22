@@ -1,5 +1,6 @@
 #[cfg(feature = "use-compression")]
 use lz4_flex::compress_prepend_size;
+
 use pwm_lib::{encryption::{
     default::{decrypt, encrypt},
     EncryptionResult,
