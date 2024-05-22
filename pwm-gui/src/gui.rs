@@ -21,6 +21,8 @@ pub struct Gui {
     scale: f32,
     update_scale: bool,
 
+    darkmode: bool,
+
     // Exit confirmation if a vault was modified
     show_exit_confirmation_dialog: bool,
     allowed_to_close: bool,
@@ -37,6 +39,8 @@ impl Default for Gui {
         Self {
             scale: 2.0,
             update_scale: true,
+
+            darkmode: true,
 
             show_exit_confirmation_dialog: false,
             allowed_to_close: false,
@@ -81,6 +85,8 @@ impl eframe::App for Gui {
             if self.update_scale {
                 ctx.set_pixels_per_point(self.scale);
             }
+
+            self.update_color_scheme(ui, ctx);
 
             // Handle clipboard
             ui.output_mut(|o| {
@@ -284,6 +290,15 @@ impl Gui {
             Err(error) => {
                 GuiError::display_error_or_print(state, error.to_string());
             }
+        }
+    }
+
+    fn update_color_scheme(&self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        ui.visuals_mut().dark_mode = self.darkmode;
+        if self.darkmode {
+            ctx.set_visuals(egui::Visuals::dark());
+        } else {
+            ctx.set_visuals(egui::Visuals::light());
         }
     }
 
@@ -571,8 +586,13 @@ impl Gui {
             });
 
             ui.menu_button("Options", |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Ui Scale");
+                    ui.add_space(12.0);
+                    ui.checkbox(&mut self.darkmode, "Darkmode");
+                });
                 if !ui
-                    .add(egui::Slider::new(&mut self.scale, 1.0..=3.0).text("UI Scale"))
+                    .add(egui::Slider::new(&mut self.scale, 1.0..=3.0))
                     .dragged()
                 {
                     self.update_scale = true;
