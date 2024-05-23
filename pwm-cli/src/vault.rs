@@ -4,8 +4,8 @@ use pwm_db::{
 };
 use pwm_lib::{encryption::EncryptionResult, random::random_password, zeroize::Zeroizing};
 
-use crate::password::{password_confirmation, request_password};
 use crate::parser::Parser;
+use crate::password::{password_confirmation, request_password};
 
 pub struct Vault {
     db: DatabaseEncrypted,
@@ -43,7 +43,7 @@ impl Vault {
     }
 
     pub fn run(&mut self) {
-        Self::help();
+        Vault::help();
 
         let mut input = String::new();
         'a: loop {
@@ -56,188 +56,200 @@ impl Vault {
                 }
             };
 
-            let parser = Parser::new(input.as_str());
-            let mut itr = parser.iter();
-            
-            if let Some(value) = itr.next() {
-                match value {
-                    "help" | "h" => {
-                        Self::help();
-                    }
-                    "insert" | "add" | "i" | "a" => {
-                        if let Some(name) = itr.next() {
-                            match self.insert(name, itr.next()) {
-                                Ok(()) => (),
-                                Err(error) => {
-                                    println!("Failed to insert: {}", error.to_string());
-                                }
-                            }
-                        } else {
-                            println!("Expected a key");
-                        }
-                    }
-                    "import" | "im" => {
-                        if let Some(name) = itr.next() {
-                            match self.import(name) {
-                                Ok(()) => {}
-                                Err(error) => {
-                                    println!("Failed to import: {}", error.to_string());
-                                }
-                            }
-                        } else {
-                            println!("Expected a file");
-                        }
-                    }
-                    "export" | "ex" => {
-                        if let Some(name) = itr.next() {
-                            match self.export(name) {
-                                Ok(()) => {}
-                                Err(error) => {
-                                    println!("Failed to export: {}", error.to_string());
-                                }
-                            }
-                        } else {
-                            println!("Expected a file");
-                        }
-                    }
-                    "remove" | "rm" => {
-                        if let Some(data) = itr.next() {
-                            match self.remove(data) {
-                                Ok(()) => (),
-                                Err(error) => {
-                                    println!("Failed to remove: {}", error.to_string());
-                                }
-                            }
-                        } else {
-                            println!("Expected a key")
-                        }
-                    }
-                    "replace" => {
-                        if let Some(name) = itr.next() {
-                            match self.replace(name, itr.next()) {
-                                Ok(()) => (),
-                                Err(error) => {
-                                    println!("Failed to insert: {}", error.to_string());
-                                }
-                            }
-                        } else {
-                            println!("Expected a key");
-                        }
-                    }
-                    "rename" => {
-                        if let (Some(name), Some(new_name)) = (itr.next(), itr.next()) {
-                            match self.rename(name, new_name) {
-                                Ok(()) => (),
-                                Err(error) => {
-                                    println!("Failed to rename: {}", error.to_string());
-                                }
-                            }
-                        } else {
-                            println!("Expected rename <name> <name>")
-                        }
-                    }
-                    "get" | "g" => {
-                        if let Some(data) = itr.next() {
-                            match self.get(data) {
-                                Ok(result) => {
-                                    let pass = match String::from_utf8(result.as_slice().to_vec()) {
-                                        Ok(val) => Zeroizing::new(val),
-                                        Err(error) => {
-                                            println!(
-                                                "Failed to convert data to String: {}",
-                                                error.to_string()
-                                            );
-                                            Zeroizing::new("".to_string())
-                                        }
-                                    };
-
-                                    println!("{}", pass.as_str());
-                                }
-                                Err(error) => {
-                                    println!("Failed to get: {}", error.to_string());
-                                }
-                            }
-                        } else {
-                            println!("Expected a key")
-                        }
-                    }
-                    "list" | "ls" => {
-                        match self.list(itr.next()) {
-                            Ok(()) => (),
-                            Err(error) => {
-                                println!("Failed to list: {}", error.to_string());
-                            }
-                        };
-                    }
-                    "search" => {
-                        match self.list(itr.next()) {
-                            Ok(()) => (),
-                            Err(error) => {
-                                println!("Failed to search: {}", error.to_string());
-                            }
-                        };
-                    }
-                    "save" | "s" => {
-                        if let Some(value) = itr.next() {
-                            self.serialize_and_save(value);
-                        } else {
-                            println!("Expected a filename");
-                        }
-                    }
-                    "pw" => {
-                        if let Some(value) = itr.next() {
-                            Self::generate_password(value);
-                        } else {
-                            println!("Expected a length");
-                        }
-                    }
-                    "exit" | "quit" | "q" => {
-                        break 'a;
-                    }
-                    _ => {
-                        println!("Invalid command");
-                    }
-                }
+            if self.handle_input(&mut input) {
+                break 'a;
             }
         }
 
         if self.changed {
-            'a: loop {
-                println!("Vault changed, do you want to save the file? (Y, N)");
-                input.clear();
-                let _ = match std::io::stdin().read_line(&mut input) {
-                    Ok(count) => count,
-                    Err(error) => {
-                        println!("User input error: {}", error.to_string());
-                        0
-                    }
-                };
+            self.handle_changed(&mut input);
+        }
+    }
 
-                let mut itr = input.split_whitespace();
-                if let Some(value) = itr.next() {
-                    match value.to_ascii_lowercase().as_str() {
-                        "y" | "yes" => {
-                            println!("Enter file name");
-                            input.clear();
-                            let _ = match std::io::stdin().read_line(&mut input) {
-                                Ok(count) => count,
-                                Err(error) => {
-                                    println!("User input error: {}", error.to_string());
-                                    0
-                                }
-                            };
+    fn handle_input(&mut self, input: &mut String) -> bool {
+        let parser = Parser::new(input.as_str());
+        let mut itr = parser.iter();
 
-                            let mut itr = input.split_whitespace();
-                            if let Some(value) = itr.next() {
-                                self.serialize_and_save(value);
+        if let Some(value) = itr.next() {
+            match value {
+                "help" | "h" => {
+                    Self::help();
+                }
+                "insert" | "add" | "i" | "a" => {
+                    if let Some(name) = itr.next() {
+                        match self.insert(name, itr.next()) {
+                            Ok(()) => (),
+                            Err(error) => {
+                                println!("Failed to insert: {}", error.to_string());
                             }
-                            break 'a;
                         }
-                        "n" | "no" => {
-                            break 'a;
-                        }
-                        _ => {}
+                    } else {
+                        println!("Expected a key");
                     }
+                }
+                "import" | "im" => {
+                    if let Some(name) = itr.next() {
+                        match self.import(name) {
+                            Ok(()) => {}
+                            Err(error) => {
+                                println!("Failed to import: {}", error.to_string());
+                            }
+                        }
+                    } else {
+                        println!("Expected a file");
+                    }
+                }
+                "export" | "ex" => {
+                    if let Some(name) = itr.next() {
+                        match self.export(name) {
+                            Ok(()) => {}
+                            Err(error) => {
+                                println!("Failed to export: {}", error.to_string());
+                            }
+                        }
+                    } else {
+                        println!("Expected a file");
+                    }
+                }
+                "remove" | "rm" => {
+                    if let Some(data) = itr.next() {
+                        match self.remove(data) {
+                            Ok(()) => (),
+                            Err(error) => {
+                                println!("Failed to remove: {}", error.to_string());
+                            }
+                        }
+                    } else {
+                        println!("Expected a key")
+                    }
+                }
+                "replace" => {
+                    if let Some(name) = itr.next() {
+                        match self.replace(name, itr.next()) {
+                            Ok(()) => (),
+                            Err(error) => {
+                                println!("Failed to insert: {}", error.to_string());
+                            }
+                        }
+                    } else {
+                        println!("Expected a key");
+                    }
+                }
+                "rename" => {
+                    if let (Some(name), Some(new_name)) = (itr.next(), itr.next()) {
+                        match self.rename(name, new_name) {
+                            Ok(()) => (),
+                            Err(error) => {
+                                println!("Failed to rename: {}", error.to_string());
+                            }
+                        }
+                    } else {
+                        println!("Expected rename <name> <name>")
+                    }
+                }
+                "get" | "g" => {
+                    if let Some(data) = itr.next() {
+                        match self.get(data) {
+                            Ok(result) => {
+                                let pass = match String::from_utf8(result.as_slice().to_vec()) {
+                                    Ok(val) => Zeroizing::new(val),
+                                    Err(error) => {
+                                        println!(
+                                            "Failed to convert data to String: {}",
+                                            error.to_string()
+                                        );
+                                        Zeroizing::new("".to_string())
+                                    }
+                                };
+
+                                println!("{}", pass.as_str());
+                            }
+                            Err(error) => {
+                                println!("Failed to get: {}", error.to_string());
+                            }
+                        }
+                    } else {
+                        println!("Expected a key")
+                    }
+                }
+                "list" | "ls" => {
+                    match self.list(itr.next()) {
+                        Ok(()) => (),
+                        Err(error) => {
+                            println!("Failed to list: {}", error.to_string());
+                        }
+                    };
+                }
+                "search" => {
+                    match self.list(itr.next()) {
+                        Ok(()) => (),
+                        Err(error) => {
+                            println!("Failed to search: {}", error.to_string());
+                        }
+                    };
+                }
+                "save" | "s" => {
+                    if let Some(value) = itr.next() {
+                        self.serialize_and_save(value);
+                    } else {
+                        println!("Expected a filename");
+                    }
+                }
+                "pw" => {
+                    if let Some(value) = itr.next() {
+                        Self::generate_password(value);
+                    } else {
+                        println!("Expected a length");
+                    }
+                }
+                "exit" | "quit" | "q" => {
+                    return true;
+                }
+                _ => {
+                    println!("Invalid command");
+                }
+            }
+        }
+
+        false
+    }
+
+    fn handle_changed(&mut self, input: &mut String) {
+        'a: loop {
+            println!("Vault changed, do you want to save the file? (Y, N)");
+            input.clear();
+            let _ = match std::io::stdin().read_line(input) {
+                Ok(count) => count,
+                Err(error) => {
+                    println!("User input error: {}", error.to_string());
+                    0
+                }
+            };
+
+            let mut itr = input.split_whitespace();
+            if let Some(value) = itr.next() {
+                match value.to_ascii_lowercase().as_str() {
+                    "y" | "yes" => {
+                        println!("Enter file name");
+                        input.clear();
+                        let _ = match std::io::stdin().read_line(input) {
+                            Ok(count) => count,
+                            Err(error) => {
+                                println!("User input error: {}", error.to_string());
+                                0
+                            }
+                        };
+
+                        let mut itr = input.split_whitespace();
+                        if let Some(value) = itr.next() {
+                            self.serialize_and_save(value);
+                        }
+                        break 'a;
+                    }
+                    "n" | "no" => {
+                        break 'a;
+                    }
+                    _ => {}
                 }
             }
         }
