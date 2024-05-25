@@ -113,7 +113,10 @@ where
 
     pub fn run(&mut self) -> std::io::Result<()> {
         self.help()?;
+        Ok(self.run_without_help()?)
+    }
 
+    fn run_without_help(&mut self) -> std::io::Result<()> {
         let mut input = String::new();
         'a: loop {
             input.clear();
@@ -550,21 +553,65 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::io::{BufReader, Cursor};
-
     use super::Vault;
+    use std::io::{BufRead, BufReader, Cursor, Write};
 
-    #[test]
-    fn test_one() {
-        let input = BufReader::new(Cursor::new("12\n12\ninsert test 12\n12\nget test\n12\nq\nn\n".as_bytes()));
+    fn new_vault(text: &str) -> Vault<BufReader<Cursor<&[u8]>>, Cursor<Vec<u8>>> {
+        let input = BufReader::new(Cursor::new(text.as_bytes()));
         let output = Cursor::new(Vec::<u8>::new());
 
-        let mut vault = Vault::<BufReader<Cursor<&[u8]>>, Cursor<Vec<u8>>>::new_internal(input, output, true).unwrap();
-        vault.run().unwrap();
+        let vault =
+            Vault::<BufReader<Cursor<&[u8]>>, Cursor<Vec<u8>>>::new_internal(input, output, true)
+                .unwrap();
 
+        vault
+    }
+
+    fn reset_cursors(
+        vault: &mut Vault<BufReader<Cursor<&[u8]>>, Cursor<Vec<u8>>>,
+        input: &'static str,
+    ) {
+        let input = BufReader::new(Cursor::new(input.as_bytes()));
+        let output = Cursor::new(Vec::<u8>::new());
+        vault.reader = input;
+        vault.writer = output;
+    }
+
+    fn run_command(
+        vault: &mut Vault<BufReader<Cursor<&[u8]>>, Cursor<Vec<u8>>>,
+    ) -> std::io::Result<bool> {
+        let mut input = String::new();
+        match vault.reader.read_line(&mut input) {
+            Ok(count) => count,
+            Err(error) => {
+                writeln!(vault.writer, "User input error: {}", error.to_string())?;
+                0
+            }
+        };
+
+        if vault.handle_input(&mut input)? {
+            return Ok(true);
+        }
+
+        Ok(false)
+    }
+
+    fn output_to_string(vault: &mut Vault<BufReader<Cursor<&[u8]>>, Cursor<Vec<u8>>>) -> String {
         let bytes = vault.writer.get_ref();
         let string = String::from_utf8(bytes.to_vec()).unwrap();
-        // TODO figure out how to test that outputs are correct
-        panic!("{string}");
+        return string;
+    }
+
+    #[test]
+    fn test_insert_get() {
+        let mut vault = new_vault("12\n12\n");
+        reset_cursors(&mut vault, "insert test 123\n12\nget test\n12\n");
+
+        run_command(&mut vault).unwrap();
+        run_command(&mut vault).unwrap();
+
+        let string = output_to_string(&mut vault);
+
+        assert_eq!(string, "123\n");
     }
 }
