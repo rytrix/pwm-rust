@@ -7,23 +7,43 @@ use pwm_lib::{encryption::EncryptionResult, random::random_password, zeroize::Ze
 use crate::parser::Parser;
 use crate::password::{password_confirmation, request_password};
 
-pub struct Vault {
+pub struct Vault<I, O>
+where
+    I: std::io::BufRead,
+    O: std::io::Write,
+{
     db: DatabaseEncrypted,
     changed: bool,
+    reader: I,
+    writer: O,
 }
 
-impl Vault {
-    pub fn new() -> Result<Self, DatabaseError> {
-        let password = match password_confirmation() {
+impl<I, O> Vault<I, O>
+where
+    I: std::io::BufRead,
+    O: std::io::Write,
+{
+    pub fn new() -> Result<Vault<std::io::BufReader<std::io::Stdin>, std::io::Stdout>, DatabaseError>
+    {
+        let mut reader = std::io::BufReader::new(std::io::stdin());
+        let password = match password_confirmation(&mut reader) {
             Ok(password) => password,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
 
         let db = DatabaseEncrypted::new(password.as_bytes())?;
-        Ok(Self { db, changed: true })
+        Ok(Vault {
+            db,
+            changed: true,
+            reader,
+            writer: std::io::stdout(),
+        })
     }
 
-    pub fn new_from_file(file: &str) -> Result<Self, DatabaseError> {
+    pub fn new_from_file(
+        file: &str,
+    ) -> Result<Vault<std::io::BufReader<std::io::Stdin>, std::io::Stdout>, DatabaseError> {
+        let mut reader = std::io::BufReader::new(std::io::stdin());
         let contents = match std::fs::read(file) {
             Ok(contents) => match EncryptionResult::new(contents) {
                 Ok(contents) => contents,
@@ -32,59 +52,66 @@ impl Vault {
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
 
-        let password = match request_password("Enter master password") {
+        let password = match request_password(&mut reader, "Enter master password") {
             Ok(value) => value,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
 
         let db = DatabaseEncrypted::new_deserialize_encrypted(&contents, password.as_bytes())?;
 
-        Ok(Self { db, changed: false })
+        Ok(Vault {
+            db,
+            changed: false,
+            reader,
+            writer: std::io::stdout(),
+        })
     }
 
-    pub fn run(&mut self) {
-        Vault::help();
+    pub fn run(&mut self) -> std::io::Result<()> {
+        self.help()?;
 
         let mut input = String::new();
         'a: loop {
             input.clear();
-            match std::io::stdin().read_line(&mut input) {
+            match self.reader.read_line(&mut input) {
                 Ok(count) => count,
                 Err(error) => {
-                    println!("User input error: {}", error.to_string());
+                    writeln!(self.writer, "User input error: {}", error.to_string())?;
                     0
                 }
             };
 
-            if self.handle_input(&mut input) {
+            if self.handle_input(&mut input)? {
                 break 'a;
             }
         }
 
         if self.changed {
-            self.handle_changed(&mut input);
+            self.handle_changed(&mut input)?;
         }
+
+        Ok(())
     }
 
-    fn handle_input(&mut self, input: &mut String) -> bool {
+    fn handle_input(&mut self, input: &mut String) -> std::io::Result<bool> {
         let parser = Parser::new(input.as_str());
         let mut itr = parser.iter();
 
         if let Some(value) = itr.next() {
             match value {
                 "help" | "h" => {
-                    Self::help();
+                    self.help()?;
                 }
                 "insert" | "add" | "i" | "a" => {
                     if let Some(name) = itr.next() {
                         match self.insert(name, itr.next()) {
                             Ok(()) => (),
                             Err(error) => {
-                                println!("Failed to insert: {}", error.to_string());
+                                writeln!(self.writer, "Failed to insert: {}", error.to_string())?;
                             }
                         }
                     } else {
-                        println!("Expected a key");
+                        writeln!(self.writer, "Expected a key")?;
                     }
                 }
                 "import" | "im" => {
@@ -92,11 +119,11 @@ impl Vault {
                         match self.import(name) {
                             Ok(()) => {}
                             Err(error) => {
-                                println!("Failed to import: {}", error.to_string());
+                                writeln!(self.writer, "Failed to import: {}", error.to_string())?;
                             }
                         }
                     } else {
-                        println!("Expected a file");
+                        writeln!(self.writer, "Expected a file")?;
                     }
                 }
                 "export" | "ex" => {
@@ -104,11 +131,11 @@ impl Vault {
                         match self.export(name) {
                             Ok(()) => {}
                             Err(error) => {
-                                println!("Failed to export: {}", error.to_string());
+                                writeln!(self.writer, "Failed to export: {}", error.to_string())?;
                             }
                         }
                     } else {
-                        println!("Expected a file");
+                        writeln!(self.writer, "Expected a file")?;
                     }
                 }
                 "remove" | "rm" => {
@@ -116,11 +143,11 @@ impl Vault {
                         match self.remove(data) {
                             Ok(()) => (),
                             Err(error) => {
-                                println!("Failed to remove: {}", error.to_string());
+                                writeln!(self.writer, "Failed to remove: {}", error.to_string())?;
                             }
                         }
                     } else {
-                        println!("Expected a key")
+                        writeln!(self.writer, "Expected a key")?;
                     }
                 }
                 "replace" => {
@@ -128,11 +155,11 @@ impl Vault {
                         match self.replace(name, itr.next()) {
                             Ok(()) => (),
                             Err(error) => {
-                                println!("Failed to insert: {}", error.to_string());
+                                writeln!(self.writer, "Failed to insert: {}", error.to_string())?;
                             }
                         }
                     } else {
-                        println!("Expected a key");
+                        writeln!(self.writer, "Expected a key")?;
                     }
                 }
                 "rename" => {
@@ -140,11 +167,11 @@ impl Vault {
                         match self.rename(name, new_name) {
                             Ok(()) => (),
                             Err(error) => {
-                                println!("Failed to rename: {}", error.to_string());
+                                writeln!(self.writer, "Failed to rename: {}", error.to_string())?;
                             }
                         }
                     } else {
-                        println!("Expected rename <name> <name>")
+                        writeln!(self.writer, "Expected rename <name> <name>")?;
                     }
                 }
                 "get" | "g" => {
@@ -154,29 +181,30 @@ impl Vault {
                                 let pass = match String::from_utf8(result.as_slice().to_vec()) {
                                     Ok(val) => Zeroizing::new(val),
                                     Err(error) => {
-                                        println!(
+                                        writeln!(
+                                            self.writer,
                                             "Failed to convert data to String: {}",
                                             error.to_string()
-                                        );
+                                        )?;
                                         Zeroizing::new("".to_string())
                                     }
                                 };
 
-                                println!("{}", pass.as_str());
+                                writeln!(self.writer, "{}", pass.as_str())?;
                             }
                             Err(error) => {
-                                println!("Failed to get: {}", error.to_string());
+                                writeln!(self.writer, "Failed to get: {}", error.to_string())?;
                             }
                         }
                     } else {
-                        println!("Expected a key")
+                        writeln!(self.writer, "Expected a key")?;
                     }
                 }
                 "list" | "ls" => {
                     match self.list(itr.next()) {
                         Ok(()) => (),
                         Err(error) => {
-                            println!("Failed to list: {}", error.to_string());
+                            writeln!(self.writer, "Failed to list: {}", error.to_string())?;
                         }
                     };
                 }
@@ -184,44 +212,47 @@ impl Vault {
                     match self.list(itr.next()) {
                         Ok(()) => (),
                         Err(error) => {
-                            println!("Failed to search: {}", error.to_string());
+                            writeln!(self.writer, "Failed to search: {}", error.to_string())?;
                         }
                     };
                 }
                 "save" | "s" => {
                     if let Some(value) = itr.next() {
-                        self.serialize_and_save(value);
+                        self.serialize_and_save(value)?;
                     } else {
-                        println!("Expected a filename");
+                        writeln!(self.writer, "Expected a filename")?;
                     }
                 }
                 "pw" => {
                     if let Some(value) = itr.next() {
-                        Self::generate_password(value);
+                        self.generate_password(value)?;
                     } else {
-                        println!("Expected a length");
+                        writeln!(self.writer, "Expected a length")?;
                     }
                 }
                 "exit" | "quit" | "q" => {
-                    return true;
+                    return Ok(true);
                 }
                 _ => {
-                    println!("Invalid command");
+                    writeln!(self.writer, "Invalid command")?;
                 }
             }
         }
 
-        false
+        Ok(false)
     }
 
-    fn handle_changed(&mut self, input: &mut String) {
+    fn handle_changed(&mut self, input: &mut String) -> std::io::Result<()> {
         'a: loop {
-            println!("Vault changed, do you want to save the file? (Y, N)");
+            writeln!(
+                self.writer,
+                "Vault changed, do you want to save the file? (Y, N)"
+            )?;
             input.clear();
-            let _ = match std::io::stdin().read_line(input) {
+            let _ = match self.reader.read_line(input) {
                 Ok(count) => count,
                 Err(error) => {
-                    println!("User input error: {}", error.to_string());
+                    writeln!(self.writer, "User input error: {}", error.to_string())?;
                     0
                 }
             };
@@ -230,19 +261,19 @@ impl Vault {
             if let Some(value) = itr.next() {
                 match value.to_ascii_lowercase().as_str() {
                     "y" | "yes" => {
-                        println!("Enter file name");
+                        writeln!(self.writer, "Enter file name")?;
                         input.clear();
-                        let _ = match std::io::stdin().read_line(input) {
+                        let _ = match self.reader.read_line(input) {
                             Ok(count) => count,
                             Err(error) => {
-                                println!("User input error: {}", error.to_string());
+                                writeln!(self.writer, "User input error: {}", error.to_string())?;
                                 0
                             }
                         };
 
                         let mut itr = input.split_whitespace();
                         if let Some(value) = itr.next() {
-                            self.serialize_and_save(value);
+                            self.serialize_and_save(value)?;
                         }
                         break 'a;
                     }
@@ -253,10 +284,12 @@ impl Vault {
                 }
             }
         }
+
+        Ok(())
     }
 
     fn insert(&mut self, name: &str, data: Option<&str>) -> Result<(), DatabaseError> {
-        let password = match request_password("Enter the master password") {
+        let password = match request_password(&mut self.reader, "Enter the master password") {
             Ok(password) => password,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
@@ -268,11 +301,13 @@ impl Vault {
             match data {
                 Some(data) => data.as_bytes(),
                 None => {
-                    data_not_entered =
-                        match request_password("Data wasn't provided, provide it here") {
-                            Ok(password) => password,
-                            Err(error) => return Err(DatabaseError::InputError(error.to_string())),
-                        };
+                    data_not_entered = match request_password(
+                        &mut self.reader,
+                        "Data wasn't provided, provide it here",
+                    ) {
+                        Ok(password) => password,
+                        Err(error) => return Err(DatabaseError::InputError(error.to_string())),
+                    };
                     data_not_entered.as_bytes()
                 }
             },
@@ -284,7 +319,7 @@ impl Vault {
     }
 
     fn import(&mut self, file: &str) -> Result<(), DatabaseError> {
-        let password = match request_password("Enter the master password") {
+        let password = match request_password(&mut self.reader, "Enter the master password") {
             Ok(password) => password,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
@@ -295,7 +330,7 @@ impl Vault {
     }
 
     fn export(&mut self, file: &str) -> Result<(), DatabaseError> {
-        let password = match request_password("Enter the master password") {
+        let password = match request_password(&mut self.reader, "Enter the master password") {
             Ok(password) => password,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
@@ -305,7 +340,7 @@ impl Vault {
     }
 
     fn remove(&mut self, name: &str) -> Result<(), DatabaseError> {
-        let password = match request_password("Enter the master password") {
+        let password = match request_password(&mut self.reader, "Enter the master password") {
             Ok(password) => password,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
@@ -316,7 +351,7 @@ impl Vault {
     }
 
     fn replace(&mut self, name: &str, new_data: Option<&str>) -> Result<(), DatabaseError> {
-        let password = match request_password("Enter the master password") {
+        let password = match request_password(&mut self.reader, "Enter the master password") {
             Ok(password) => password,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
@@ -325,7 +360,7 @@ impl Vault {
         let new_data = if let Some(new_data) = new_data {
             new_data
         } else {
-            match request_password("Enter new password") {
+            match request_password(&mut self.reader, "Enter new password") {
                 Ok(password) => {
                     new_data_password = password;
                     new_data_password.as_str()
@@ -341,7 +376,7 @@ impl Vault {
     }
 
     fn rename(&mut self, name: &str, new_name: &str) -> Result<(), DatabaseError> {
-        let password = match request_password("Enter the master password") {
+        let password = match request_password(&mut self.reader, "Enter the master password") {
             Ok(password) => password,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
@@ -351,8 +386,8 @@ impl Vault {
         Ok(())
     }
 
-    fn get(&self, name: &str) -> Result<EncryptionResult, DatabaseError> {
-        let password = match request_password("Enter the master password") {
+    fn get(&mut self, name: &str) -> Result<EncryptionResult, DatabaseError> {
+        let password = match request_password(&mut self.reader, "Enter the master password") {
             Ok(password) => password,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
@@ -380,59 +415,63 @@ impl Vault {
             }
             itr_number += 1;
         }
-        println!("{}", list_string);
+        writeln!(self.writer, "{}", list_string)?;
 
         Ok(())
     }
 
-    fn serialize_and_save(&mut self, file: &str) {
-        let password = match request_password("Enter master password") {
+    fn serialize_and_save(&mut self, file: &str) -> std::io::Result<()> {
+        let password = match request_password(&mut self.reader, "Enter master password") {
             Ok(pass) => pass,
             Err(error) => {
-                println!("Error failed to get user input {}", error);
-                return;
+                writeln!(self.writer, "Error failed to get user input {}", error)?;
+                return Ok(());
             }
         };
 
         let ciphertext = match self.db.serialize_encrypted(password.as_bytes()) {
             Ok(data) => data,
             Err(error) => {
-                println!("Error failed to serialize database: {}", error);
-                return;
+                writeln!(self.writer, "Error failed to serialize database: {}", error)?;
+                return Ok(());
             }
         };
 
-        println!("Writing to file \"{}\"", file);
+        writeln!(self.writer, "Writing to file \"{}\"", file)?;
         match std::fs::write(file, ciphertext.as_ref()) {
             Ok(()) => (),
             Err(error) => {
-                println!("Error failed to write to file: {}", error);
-                return;
+                writeln!(self.writer, "Error failed to write to file: {}", error)?;
+                return Ok(());
             }
         };
         self.changed = false;
+
+        Ok(())
     }
 
-    fn generate_password(length: &str) {
+    fn generate_password(&mut self, length: &str) -> std::io::Result<()> {
         let length = match length.parse::<usize>() {
             Ok(length) => length,
             Err(_error) => {
-                println!("Invalid length input");
-                return;
+                writeln!(self.writer, "Invalid length input")?;
+                return Ok(());
             }
         };
         let password = match random_password(length) {
             Ok(password) => password,
             Err(error) => {
-                println!("Failed to generate password: {}", error);
-                return;
+                writeln!(self.writer, "Failed to generate password: {}", error)?;
+                return Ok(());
             }
         };
-        println!("Generated: \"{}\"", password);
+        writeln!(self.writer, "Generated: \"{}\"", password)?;
+        Ok(())
     }
 
-    fn help() {
-        println!(
+    fn help(&mut self) -> std::io::Result<()> {
+        writeln!(
+            self.writer,
             "Vault:
     help                  - this menu 
     insert  <key> <data?> - insert an element 
@@ -447,6 +486,7 @@ impl Vault {
     search  <pattern?>    - search all keys
     pw      <length>      - generate a password
     exit                  - exit the program"
-        )
+        )?;
+        Ok(())
     }
 }

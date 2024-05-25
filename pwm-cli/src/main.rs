@@ -1,6 +1,6 @@
+mod parser;
 mod password;
 mod vault;
-mod parser;
 
 use crate::{
     password::{password_confirmation, request_password},
@@ -37,12 +37,14 @@ struct Args {
 
 fn main() -> Result<(), std::io::Error> {
     let args = Args::parse();
+    let stdin = std::io::stdin();
+    let mut reader = std::io::BufReader::new(stdin);
 
     if args.decrypt.is_none() && args.vault.is_none() && !args.create {
         // Encrypt
         if let Some(name) = args.encrypt {
             println!("Encrypting file {}", name);
-            let password = password_confirmation()?;
+            let password = password_confirmation(&mut reader)?;
             if let Err(error) = encrypt_file(name, args.out, password.as_bytes()) {
                 println!("Error: {}", error.to_string());
             }
@@ -51,7 +53,7 @@ fn main() -> Result<(), std::io::Error> {
         // Decrypt
         if let Some(name) = args.decrypt {
             println!("Decrypting file {}", name);
-            let password = request_password("Enter your password")?;
+            let password = request_password(&mut reader, "Enter your password")?;
             if let Err(error) = decrypt_file(name, args.out, password.as_bytes()) {
                 println!("Error: {}", error);
             }
@@ -63,15 +65,18 @@ fn main() -> Result<(), std::io::Error> {
         }
         if let Some(name) = args.vault {
             println!("Loading a vault from the file {}", name);
-            let mut vault = match Vault::new_from_file(name.as_str()) {
-                Ok(vault) => vault,
-                Err(error) => {
-                    println!("Error: {}", error.to_string());
-                    return Ok(());
-                }
-            };
+            let mut vault =
+                match Vault::<std::io::BufReader<std::io::Stdin>, std::io::Stdout>::new_from_file(
+                    name.as_str(),
+                ) {
+                    Ok(vault) => vault,
+                    Err(error) => {
+                        println!("Error: {}", error.to_string());
+                        return Ok(());
+                    }
+                };
 
-            vault.run();
+            vault.run()?;
         }
     } else if args.encrypt.is_none() && args.decrypt.is_none() && args.vault.is_none() {
         // New Vault
@@ -80,15 +85,16 @@ fn main() -> Result<(), std::io::Error> {
         }
         if args.create {
             println!("Creating a new vault");
-            let mut vault = match Vault::new() {
-                Ok(vault) => vault,
-                Err(error) => {
-                    println!("Error: {}", error.to_string());
-                    return Ok(());
-                }
-            };
+            let mut vault =
+                match Vault::<std::io::BufReader<std::io::Stdin>, std::io::Stdout>::new() {
+                    Ok(vault) => vault,
+                    Err(error) => {
+                        println!("Error: {}", error.to_string());
+                        return Ok(());
+                    }
+                };
 
-            vault.run();
+            vault.run()?;
         }
     } else {
         println!("to many arguments provided, only provide encrypt, decrypt, vault or create");
