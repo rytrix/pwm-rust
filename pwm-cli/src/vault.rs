@@ -567,6 +567,21 @@ mod tests {
         vault
     }
 
+    fn new_vault_from_file<'a, 'b>(
+        file: &'a str,
+        text: &'b str,
+    ) -> Vault<BufReader<Cursor<&'b [u8]>>, Cursor<Vec<u8>>> {
+        let input = BufReader::new(Cursor::new(text.as_bytes()));
+        let output = Cursor::new(Vec::<u8>::new());
+
+        let vault = Vault::<BufReader<Cursor<&[u8]>>, Cursor<Vec<u8>>>::new_from_file_internal(
+            file, input, output, true,
+        )
+        .unwrap();
+
+        vault
+    }
+
     fn reset_cursors(
         vault: &mut Vault<BufReader<Cursor<&[u8]>>, Cursor<Vec<u8>>>,
         input: &'static str,
@@ -618,7 +633,10 @@ mod tests {
     #[test]
     fn test_replace() {
         let mut vault = new_vault("12\n12\n");
-        reset_cursors(&mut vault, "insert test 123\n12\nreplace test 1234\n12\nget test\n12\n");
+        reset_cursors(
+            &mut vault,
+            "insert test 123\n12\nreplace test 1234\n12\nget test\n12\n",
+        );
 
         run_command(&mut vault).unwrap();
         run_command(&mut vault).unwrap();
@@ -632,7 +650,10 @@ mod tests {
     #[test]
     fn test_rename() {
         let mut vault = new_vault("12\n12\n");
-        reset_cursors(&mut vault, "insert test 123\n12\nrename test test2\n12\nget test2\n12\n");
+        reset_cursors(
+            &mut vault,
+            "insert test 123\n12\nrename test test2\n12\nget test2\n12\n",
+        );
 
         run_command(&mut vault).unwrap();
         run_command(&mut vault).unwrap();
@@ -646,7 +667,10 @@ mod tests {
     #[test]
     fn test_list_search() {
         let mut vault = new_vault("12\n12\n");
-        reset_cursors(&mut vault, "insert user1 123\n12\ninsert user2 123\n12\ninsert user3 123\n12\n");
+        reset_cursors(
+            &mut vault,
+            "insert user1 123\n12\ninsert user2 123\n12\ninsert user3 123\n12\n",
+        );
 
         run_command(&mut vault).unwrap();
         run_command(&mut vault).unwrap();
@@ -696,7 +720,10 @@ mod tests {
     #[test]
     fn test_import_export() {
         let mut vault = new_vault("12\n12\n");
-        reset_cursors(&mut vault, "import tests/users.csv\n12\nexport tests/users_test.csv\n12\n");
+        reset_cursors(
+            &mut vault,
+            "import tests/users.csv\n12\nexport tests/users_test.csv\n12\n",
+        );
 
         run_command(&mut vault).unwrap();
         run_command(&mut vault).unwrap();
@@ -704,6 +731,37 @@ mod tests {
         let imported = std::fs::read("tests/users.csv").unwrap();
         let exported = std::fs::read("tests/users_test.csv").unwrap();
         std::fs::remove_file("tests/users_test.csv").unwrap();
+
+        assert_eq!(imported, exported);
+    }
+
+    #[test]
+    fn test_vault_save_load() {
+        let mut vault = new_vault("12\n12\n");
+        reset_cursors(
+            &mut vault,
+            "import tests/users.csv\n12\nsave tests/Vault\n12\n",
+        );
+
+        run_command(&mut vault).unwrap();
+        run_command(&mut vault).unwrap();
+
+        let mut vault = new_vault_from_file("tests/Vault", "12\n");
+        reset_cursors(
+            &mut vault,
+            "get user0\n12\nexport tests/save_load_test_users.csv\n12\n",
+        );
+
+        run_command(&mut vault).unwrap();
+        run_command(&mut vault).unwrap();
+
+        let string = output_to_string(&mut vault);
+        assert_eq!(string, "password0\n");
+
+        let imported = std::fs::read("tests/users.csv").unwrap();
+        let exported = std::fs::read("tests/save_load_test_users.csv").unwrap();
+        std::fs::remove_file("tests/save_load_test_users.csv").unwrap();
+        std::fs::remove_file("tests/Vault").unwrap();
 
         assert_eq!(imported, exported);
     }
