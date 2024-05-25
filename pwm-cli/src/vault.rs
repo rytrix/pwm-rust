@@ -631,6 +631,19 @@ mod tests {
     }
 
     #[test]
+    fn test_insert_get_extended_name() {
+        let mut vault = new_vault("12\n12\n");
+        reset_cursors(&mut vault, "insert \"test 123\" 123\n12\nget \"test 123\"\n12\n");
+
+        run_command(&mut vault).unwrap();
+        run_command(&mut vault).unwrap();
+
+        let string = output_to_string(&mut vault);
+
+        assert_eq!(string, "123\n");
+    }
+
+    #[test]
     fn test_replace() {
         let mut vault = new_vault("12\n12\n");
         reset_cursors(
