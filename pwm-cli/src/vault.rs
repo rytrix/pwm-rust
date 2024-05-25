@@ -614,4 +614,41 @@ mod tests {
 
         assert_eq!(string, "123\n");
     }
+
+    #[test]
+    fn test_list_search() {
+        let mut vault = new_vault("12\n12\n");
+        reset_cursors(&mut vault, "insert user1 123\n12\ninsert user2 123\n12\ninsert user3 123\n12\n");
+
+        run_command(&mut vault).unwrap();
+        run_command(&mut vault).unwrap();
+        run_command(&mut vault).unwrap();
+
+        let string = output_to_string(&mut vault);
+        assert_eq!(string, "");
+
+        reset_cursors(&mut vault, "list\n");
+        run_command(&mut vault).unwrap();
+
+        let string = output_to_string(&mut vault);
+        assert_eq!(string, "user1, user2, user3\n");
+
+        reset_cursors(&mut vault, "search\n");
+        run_command(&mut vault).unwrap();
+
+        let string = output_to_string(&mut vault);
+        assert_eq!(string, "user1, user2, user3\n");
+
+        reset_cursors(&mut vault, "list 1\n");
+        run_command(&mut vault).unwrap();
+
+        let string = output_to_string(&mut vault);
+        assert_eq!(string, "user1\n");
+
+        reset_cursors(&mut vault, "search 1\n");
+        run_command(&mut vault).unwrap();
+
+        let string = output_to_string(&mut vault);
+        assert_eq!(string, "user1\n");
+    }
 }
