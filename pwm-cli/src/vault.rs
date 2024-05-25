@@ -5,7 +5,6 @@ use pwm_db::{
 use pwm_lib::{encryption::EncryptionResult, random::random_password, zeroize::Zeroizing};
 
 use crate::parser::Parser;
-use crate::password::{password_confirmation, request_password};
 
 pub struct Vault<I, O>
 where
@@ -16,6 +15,7 @@ where
     changed: bool,
     reader: I,
     writer: O,
+    test_mode: bool,
 }
 
 impl<I, O> Vault<I, O>
@@ -23,12 +23,21 @@ where
     I: std::io::BufRead,
     O: std::io::Write,
 {
-    pub fn new() -> Result<Vault<std::io::BufReader<std::io::Stdin>, std::io::Stdout>, DatabaseError>
-    {
+    fn new_internal(
+        test_mode: bool,
+    ) -> Result<Vault<std::io::BufReader<std::io::Stdin>, std::io::Stdout>, DatabaseError> {
         let mut reader = std::io::BufReader::new(std::io::stdin());
-        let password = match password_confirmation(&mut reader) {
-            Ok(password) => password,
-            Err(error) => return Err(DatabaseError::InputError(error.to_string())),
+
+        let password = if test_mode {
+            match crate::password::password_confirmation_test(&mut reader) {
+                Ok(password) => password,
+                Err(error) => return Err(DatabaseError::InputError(error.to_string())),
+            }
+        } else {
+            match crate::password::password_confirmation() {
+                Ok(password) => password,
+                Err(error) => return Err(DatabaseError::InputError(error.to_string())),
+            }
         };
 
         let db = DatabaseEncrypted::new(password.as_bytes())?;
@@ -37,11 +46,23 @@ where
             changed: true,
             reader,
             writer: std::io::stdout(),
+            test_mode,
         })
     }
 
-    pub fn new_from_file(
+    pub fn new() -> Result<Vault<std::io::BufReader<std::io::Stdin>, std::io::Stdout>, DatabaseError>
+    {
+        Self::new_internal(false)
+    }
+
+    pub fn new_test(
+    ) -> Result<Vault<std::io::BufReader<std::io::Stdin>, std::io::Stdout>, DatabaseError> {
+        Self::new_internal(true)
+    }
+
+    fn new_from_file_internal(
         file: &str,
+        test_mode: bool,
     ) -> Result<Vault<std::io::BufReader<std::io::Stdin>, std::io::Stdout>, DatabaseError> {
         let mut reader = std::io::BufReader::new(std::io::stdin());
         let contents = match std::fs::read(file) {
@@ -52,9 +73,16 @@ where
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
 
-        let password = match request_password(&mut reader, "Enter master password") {
-            Ok(value) => value,
-            Err(error) => return Err(DatabaseError::InputError(error.to_string())),
+        let password = if test_mode {
+            match crate::password::request_password_test(&mut reader, "Enter master password") {
+                Ok(password) => password,
+                Err(error) => return Err(DatabaseError::InputError(error.to_string())),
+            }
+        } else {
+            match crate::password::request_password("Enter master password") {
+                Ok(value) => value,
+                Err(error) => return Err(DatabaseError::InputError(error.to_string())),
+            }
         };
 
         let db = DatabaseEncrypted::new_deserialize_encrypted(&contents, password.as_bytes())?;
@@ -64,7 +92,20 @@ where
             changed: false,
             reader,
             writer: std::io::stdout(),
+            test_mode: false,
         })
+    }
+
+    pub fn new_from_file(
+        file: &str,
+    ) -> Result<Vault<std::io::BufReader<std::io::Stdin>, std::io::Stdout>, DatabaseError> {
+        Self::new_from_file_internal(file, false)
+    }
+
+    fn new_from_file_test(
+        file: &str,
+    ) -> Result<Vault<std::io::BufReader<std::io::Stdin>, std::io::Stdout>, DatabaseError> {
+        Self::new_from_file_internal(file, true)
     }
 
     pub fn run(&mut self) -> std::io::Result<()> {
@@ -289,37 +330,33 @@ where
     }
 
     fn insert(&mut self, name: &str, data: Option<&str>) -> Result<(), DatabaseError> {
-        let password = match request_password(&mut self.reader, "Enter the master password") {
+        let password = match self.request_password("Enter the master password") {
             Ok(password) => password,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
 
         let data_not_entered: Zeroizing<String>;
 
-        self.db.insert(
-            name,
-            match data {
-                Some(data) => data.as_bytes(),
-                None => {
-                    data_not_entered = match request_password(
-                        &mut self.reader,
-                        "Data wasn't provided, provide it here",
-                    ) {
+        let data = match data {
+            Some(data) => data.as_bytes(),
+            None => {
+                data_not_entered =
+                    match self.request_password("Data wasn't provided, provide it here") {
                         Ok(password) => password,
                         Err(error) => return Err(DatabaseError::InputError(error.to_string())),
                     };
-                    data_not_entered.as_bytes()
-                }
-            },
-            password.as_bytes(),
-        )?;
+                data_not_entered.as_bytes()
+            }
+        };
+
+        self.db.insert(name, data, password.as_bytes())?;
         self.changed = true;
 
         Ok(())
     }
 
     fn import(&mut self, file: &str) -> Result<(), DatabaseError> {
-        let password = match request_password(&mut self.reader, "Enter the master password") {
+        let password = match self.request_password("Enter the master password") {
             Ok(password) => password,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
@@ -330,7 +367,7 @@ where
     }
 
     fn export(&mut self, file: &str) -> Result<(), DatabaseError> {
-        let password = match request_password(&mut self.reader, "Enter the master password") {
+        let password = match self.request_password("Enter the master password") {
             Ok(password) => password,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
@@ -340,7 +377,7 @@ where
     }
 
     fn remove(&mut self, name: &str) -> Result<(), DatabaseError> {
-        let password = match request_password(&mut self.reader, "Enter the master password") {
+        let password = match self.request_password("Enter the master password") {
             Ok(password) => password,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
@@ -351,7 +388,7 @@ where
     }
 
     fn replace(&mut self, name: &str, new_data: Option<&str>) -> Result<(), DatabaseError> {
-        let password = match request_password(&mut self.reader, "Enter the master password") {
+        let password = match self.request_password("Enter the master password") {
             Ok(password) => password,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
@@ -360,7 +397,7 @@ where
         let new_data = if let Some(new_data) = new_data {
             new_data
         } else {
-            match request_password(&mut self.reader, "Enter new password") {
+            match self.request_password("Enter new password") {
                 Ok(password) => {
                     new_data_password = password;
                     new_data_password.as_str()
@@ -376,7 +413,7 @@ where
     }
 
     fn rename(&mut self, name: &str, new_name: &str) -> Result<(), DatabaseError> {
-        let password = match request_password(&mut self.reader, "Enter the master password") {
+        let password = match self.request_password("Enter the master password") {
             Ok(password) => password,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
@@ -387,7 +424,7 @@ where
     }
 
     fn get(&mut self, name: &str) -> Result<EncryptionResult, DatabaseError> {
-        let password = match request_password(&mut self.reader, "Enter the master password") {
+        let password = match self.request_password("Enter the master password") {
             Ok(password) => password,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
         };
@@ -421,7 +458,7 @@ where
     }
 
     fn serialize_and_save(&mut self, file: &str) -> std::io::Result<()> {
-        let password = match request_password(&mut self.reader, "Enter master password") {
+        let password = match self.request_password("Enter master password") {
             Ok(pass) => pass,
             Err(error) => {
                 writeln!(self.writer, "Error failed to get user input {}", error)?;
@@ -488,5 +525,22 @@ where
     exit                  - exit the program"
         )?;
         Ok(())
+    }
+
+    fn request_password(&mut self, prompt: &str) -> std::io::Result<Zeroizing<String>> {
+        if self.test_mode {
+            crate::password::request_password_test(&mut self.reader, prompt)
+        } else {
+            crate::password::request_password(prompt)
+        }
+    }
+
+    #[allow(dead_code)]
+    fn password_confirmation(&mut self) -> std::io::Result<Zeroizing<String>> {
+        if self.test_mode {
+            crate::password::password_confirmation_test(&mut self.reader)
+        } else {
+            crate::password::password_confirmation()
+        }
     }
 }

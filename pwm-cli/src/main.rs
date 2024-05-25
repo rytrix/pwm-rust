@@ -37,14 +37,12 @@ struct Args {
 
 fn main() -> Result<(), std::io::Error> {
     let args = Args::parse();
-    let stdin = std::io::stdin();
-    let mut reader = std::io::BufReader::new(stdin);
 
     if args.decrypt.is_none() && args.vault.is_none() && !args.create {
         // Encrypt
         if let Some(name) = args.encrypt {
             println!("Encrypting file {}", name);
-            let password = password_confirmation(&mut reader)?;
+            let password = password_confirmation()?;
             if let Err(error) = encrypt_file(name, args.out, password.as_bytes()) {
                 println!("Error: {}", error.to_string());
             }
@@ -53,7 +51,7 @@ fn main() -> Result<(), std::io::Error> {
         // Decrypt
         if let Some(name) = args.decrypt {
             println!("Decrypting file {}", name);
-            let password = request_password(&mut reader, "Enter your password")?;
+            let password = request_password("Enter your password")?;
             if let Err(error) = decrypt_file(name, args.out, password.as_bytes()) {
                 println!("Error: {}", error);
             }
