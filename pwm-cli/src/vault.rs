@@ -518,15 +518,15 @@ where
             "Vault:
     help                  - this menu 
     insert  <key> <data?> - insert an element 
-    import  <file>        - import key/value pairs from csv
-    export  <file>        - export key/value pairs to csv
     remove  <key>         - remove an element
     replace <key> <data?> - remove an element
-    remove  <name> <name> - rename an entry
+    rename  <name> <name> - rename an entry
     get     <key>         - retrieve an element
     save    <file>        - save to a file
     list    <pattern?>    - list all keys
     search  <pattern?>    - search all keys
+    import  <file>        - import key/value pairs from csv
+    export  <file>        - export key/value pairs to csv
     pw      <length>      - generate a password
     exit                  - exit the program"
         )?;
@@ -607,6 +607,34 @@ mod tests {
         let mut vault = new_vault("12\n12\n");
         reset_cursors(&mut vault, "insert test 123\n12\nget test\n12\n");
 
+        run_command(&mut vault).unwrap();
+        run_command(&mut vault).unwrap();
+
+        let string = output_to_string(&mut vault);
+
+        assert_eq!(string, "123\n");
+    }
+
+    #[test]
+    fn test_replace() {
+        let mut vault = new_vault("12\n12\n");
+        reset_cursors(&mut vault, "insert test 123\n12\nreplace test 1234\n12\nget test\n12\n");
+
+        run_command(&mut vault).unwrap();
+        run_command(&mut vault).unwrap();
+        run_command(&mut vault).unwrap();
+
+        let string = output_to_string(&mut vault);
+
+        assert_eq!(string, "1234\n");
+    }
+
+    #[test]
+    fn test_rename() {
+        let mut vault = new_vault("12\n12\n");
+        reset_cursors(&mut vault, "insert test 123\n12\nrename test test2\n12\nget test2\n12\n");
+
+        run_command(&mut vault).unwrap();
         run_command(&mut vault).unwrap();
         run_command(&mut vault).unwrap();
 
