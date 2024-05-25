@@ -679,4 +679,32 @@ mod tests {
         let string = output_to_string(&mut vault);
         assert_eq!(string, "user1\n");
     }
+
+    #[test]
+    fn test_import() {
+        let mut vault = new_vault("12\n12\n");
+        reset_cursors(&mut vault, "import tests/users.csv\n12\nget user1\n12\n");
+
+        run_command(&mut vault).unwrap();
+        run_command(&mut vault).unwrap();
+
+        let string = output_to_string(&mut vault);
+
+        assert_eq!(string, "password1\n");
+    }
+
+    #[test]
+    fn test_import_export() {
+        let mut vault = new_vault("12\n12\n");
+        reset_cursors(&mut vault, "import tests/users.csv\n12\nexport tests/users_test.csv\n12\n");
+
+        run_command(&mut vault).unwrap();
+        run_command(&mut vault).unwrap();
+
+        let imported = std::fs::read("tests/users.csv").unwrap();
+        let exported = std::fs::read("tests/users_test.csv").unwrap();
+        std::fs::remove_file("tests/users_test.csv").unwrap();
+
+        assert_eq!(imported, exported);
+    }
 }
