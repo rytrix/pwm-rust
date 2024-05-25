@@ -23,11 +23,15 @@ where
     I: std::io::BufRead,
     O: std::io::Write,
 {
-    fn new_internal(
+    fn new_internal<In, Out>(
+        mut reader: In,
+        writer: Out,
         test_mode: bool,
-    ) -> Result<Vault<std::io::BufReader<std::io::Stdin>, std::io::Stdout>, DatabaseError> {
-        let mut reader = std::io::BufReader::new(std::io::stdin());
-
+    ) -> Result<Vault<In, Out>, DatabaseError>
+    where
+        In: std::io::BufRead,
+        Out: std::io::Write,
+    {
         let password = if test_mode {
             match crate::password::password_confirmation_test(&mut reader) {
                 Ok(password) => password,
@@ -41,30 +45,33 @@ where
         };
 
         let db = DatabaseEncrypted::new(password.as_bytes())?;
+
         Ok(Vault {
             db,
             changed: true,
             reader,
-            writer: std::io::stdout(),
+            writer,
             test_mode,
         })
     }
 
     pub fn new() -> Result<Vault<std::io::BufReader<std::io::Stdin>, std::io::Stdout>, DatabaseError>
     {
-        Self::new_internal(false)
+        let reader = std::io::BufReader::new(std::io::stdin());
+        let writer = std::io::stdout();
+        Self::new_internal(reader, writer, false)
     }
 
-    pub fn new_test(
-    ) -> Result<Vault<std::io::BufReader<std::io::Stdin>, std::io::Stdout>, DatabaseError> {
-        Self::new_internal(true)
-    }
-
-    fn new_from_file_internal(
+    fn new_from_file_internal<In, Out>(
         file: &str,
+        mut reader: In,
+        writer: Out,
         test_mode: bool,
-    ) -> Result<Vault<std::io::BufReader<std::io::Stdin>, std::io::Stdout>, DatabaseError> {
-        let mut reader = std::io::BufReader::new(std::io::stdin());
+    ) -> Result<Vault<In, Out>, DatabaseError>
+    where
+        In: std::io::BufRead,
+        Out: std::io::Write,
+    {
         let contents = match std::fs::read(file) {
             Ok(contents) => match EncryptionResult::new(contents) {
                 Ok(contents) => contents,
@@ -89,23 +96,19 @@ where
 
         Ok(Vault {
             db,
-            changed: false,
+            changed: true,
             reader,
-            writer: std::io::stdout(),
-            test_mode: false,
+            writer,
+            test_mode,
         })
     }
 
     pub fn new_from_file(
         file: &str,
     ) -> Result<Vault<std::io::BufReader<std::io::Stdin>, std::io::Stdout>, DatabaseError> {
-        Self::new_from_file_internal(file, false)
-    }
-
-    fn new_from_file_test(
-        file: &str,
-    ) -> Result<Vault<std::io::BufReader<std::io::Stdin>, std::io::Stdout>, DatabaseError> {
-        Self::new_from_file_internal(file, true)
+        let reader = std::io::BufReader::new(std::io::stdin());
+        let writer = std::io::stdout();
+        Self::new_from_file_internal(file, reader, writer, false)
     }
 
     pub fn run(&mut self) -> std::io::Result<()> {
@@ -542,5 +545,26 @@ where
         } else {
             crate::password::password_confirmation()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::{BufReader, Cursor};
+
+    use super::Vault;
+
+    #[test]
+    fn test_one() {
+        let input = BufReader::new(Cursor::new("12\n12\ninsert test 12\n12\nget test\n12\nq\nn\n".as_bytes()));
+        let output = Cursor::new(Vec::<u8>::new());
+
+        let mut vault = Vault::<BufReader<Cursor<&[u8]>>, Cursor<Vec<u8>>>::new_internal(input, output, true).unwrap();
+        vault.run().unwrap();
+
+        let bytes = vault.writer.get_ref();
+        let string = String::from_utf8(bytes.to_vec()).unwrap();
+        // TODO figure out how to test that outputs are correct
+        panic!("{string}");
     }
 }
