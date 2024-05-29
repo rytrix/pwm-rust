@@ -67,13 +67,13 @@ impl eframe::App for Gui {
 
             if self.show_exit_confirmation_dialog {
                 if let Err(error) = self.display_exit_confirmation(ctx) {
-                    GuiError::display_error_or_print(self.state.clone(), error.to_string());
+                    GuiError::display_error_or_print(self.state.clone(), error);
                 }
             }
 
             if self.show_new_vault_confirmation_dialog {
                 if let Err(error) = self.display_new_vault_confirmation(ctx) {
-                    GuiError::display_error_or_print(self.state.clone(), error.to_string());
+                    GuiError::display_error_or_print(self.state.clone(), error);
                 }
             }
 
@@ -100,7 +100,7 @@ impl eframe::App for Gui {
             });
 
             if let Err(error) = self.handle_keybinds(ctx) {
-                GuiError::display_error_or_print(self.state.clone(), error.to_string());
+                GuiError::display_error_or_print(self.state.clone(), error);
             }
 
             let _text_height = egui::TextStyle::Body
@@ -109,19 +109,19 @@ impl eframe::App for Gui {
                 .max(ui.spacing().interact_size.y);
 
             if let Err(error) = self.display_header(ui) {
-                GuiError::display_error_or_print(self.state.clone(), error.to_string());
+                GuiError::display_error_or_print(self.state.clone(), error);
             }
 
             if let Err(error) = Gui::display_prompts(self.state.clone(), ui) {
-                GuiError::display_error_or_print(self.state.clone(), error.to_string());
+                GuiError::display_error_or_print(self.state.clone(), error);
             }
 
             if let Err(error) = Gui::display_messages(self.state.clone(), ui) {
-                GuiError::display_error_or_print(self.state.clone(), error.to_string());
+                GuiError::display_error_or_print(self.state.clone(), error);
             }
 
             if let Err(error) = Gui::display_vault(self.state.clone(), ui) {
-                GuiError::display_error_or_print(self.state.clone(), error.to_string());
+                GuiError::display_error_or_print(self.state.clone(), error);
             }
         });
     }
@@ -138,7 +138,7 @@ impl Gui {
             Err(error) => {
                 GuiError::display_error_or_print(
                     state.clone(),
-                    format!("Could not open current directory: {}", error.to_string()),
+                    format!("Could not open current directory: {}", error.to_string()).into(),
                 );
             }
         };
@@ -178,7 +178,7 @@ impl Gui {
     async fn file_new_no_check(state: Arc<State>) {
         let error = State::create_vault(state.clone()).await;
         if let Err(error) = error {
-            GuiError::display_error_or_print(state, error.to_string());
+            GuiError::display_error_or_print(state, error);
         }
     }
 
@@ -195,7 +195,7 @@ impl Gui {
         let error = State::open_vault_from_file(state.clone()).await;
 
         if let Err(error) = error {
-            GuiError::display_error_or_print(state, error.to_string());
+            GuiError::display_error_or_print(state, error);
         }
     }
 
@@ -205,13 +205,13 @@ impl Gui {
                 if !contains {
                     GuiError::display_error_or_print(
                         state.clone(),
-                        String::from("No vault opened"),
+                        String::from("No vault opened").into(),
                     );
                     return None;
                 }
             }
             Err(error) => {
-                GuiError::display_error_or_print(state.clone(), error.to_string());
+                GuiError::display_error_or_print(state.clone(), error);
                 return None;
             }
         }
@@ -229,7 +229,7 @@ impl Gui {
         let password = match get_password(state.clone()) {
             Ok(password) => password,
             Err(error) => {
-                GuiError::display_error_or_print(state.clone(), error.to_string());
+                GuiError::display_error_or_print(state.clone(), error);
                 return None;
             }
         };
@@ -248,7 +248,7 @@ impl Gui {
             Err(error) => {
                 GuiError::display_error_or_print(
                     state,
-                    format!("File save error: {}", error.to_string()),
+                    error,
                 );
                 return;
             }
@@ -259,7 +259,7 @@ impl Gui {
         if let Err(error) =
             State::save_vault_to_file(state.clone(), path.as_str(), password.as_bytes()).await
         {
-            GuiError::display_error_or_print(state, error.to_string());
+            GuiError::display_error_or_print(state, error);
         }
     }
 
@@ -288,7 +288,7 @@ impl Gui {
         {
             Ok(()) => (),
             Err(error) => {
-                GuiError::display_error_or_print(state, error.to_string());
+                GuiError::display_error_or_print(state, error.into());
             }
         }
     }
@@ -320,7 +320,7 @@ impl Gui {
             let password = match receiver.recv() {
                 Ok(password) => password,
                 Err(error) => {
-                    GuiError::display_error_or_print(state.clone(), error.to_string());
+                    GuiError::display_error_or_print(state.clone(), error.into());
                     return None;
                 }
             };
@@ -358,7 +358,7 @@ impl Gui {
             match encrypt_file(file, None, password.as_bytes()) {
                 Ok(()) => (),
                 Err(error) => {
-                    GuiError::display_error_or_print(state, error.to_string());
+                    GuiError::display_error_or_print(state, error.into());
                 }
             };
         }
@@ -373,7 +373,7 @@ impl Gui {
                 Err(_error) => {
                     GuiError::display_error_or_print(
                         state,
-                        String::from("Failed to decrypt file, invalid password"),
+                        String::from("Failed to decrypt file, invalid password").into(),
                     );
                 }
             };
@@ -384,7 +384,7 @@ impl Gui {
         let mut clipboard = match state.clipboard_string.lock() {
             Ok(clipboard) => clipboard,
             Err(error) => {
-                GuiError::display_error_or_print(state.clone(), error.to_string());
+                GuiError::display_error_or_print(state.clone(), error.into());
                 return;
             }
         };
@@ -394,7 +394,7 @@ impl Gui {
                 let length: usize = match password_length.parse() {
                     Ok(length) => length,
                     Err(error) => {
-                        GuiError::display_error_or_print(state.clone(), error.to_string());
+                        GuiError::display_error_or_print(state.clone(), error.to_string().into());
                         return;
                     }
                 };
@@ -402,7 +402,7 @@ impl Gui {
                 let password = match random_password(length) {
                     Ok(password) => password,
                     Err(error) => {
-                        GuiError::display_error_or_print(state.clone(), error.to_string());
+                        GuiError::display_error_or_print(state.clone(), error.to_string().into());
                         return;
                     }
                 };
@@ -410,7 +410,7 @@ impl Gui {
                 *clipboard = Some(Zeroizing::new(password));
             }
             Err(error) => {
-                GuiError::display_error_or_print(state.clone(), error.to_string());
+                GuiError::display_error_or_print(state.clone(), error.into());
             }
         }
     }
@@ -419,7 +419,7 @@ impl Gui {
         let mut clipboard = match state.clipboard_string.lock() {
             Ok(clipboard) => clipboard,
             Err(error) => {
-                GuiError::display_error_or_print(state.clone(), error.to_string());
+                GuiError::display_error_or_print(state.clone(), error.into());
                 return;
             }
         };
@@ -429,43 +429,43 @@ impl Gui {
 
     async fn insert(state: Arc<State>, name: String) {
         if let Err(error) = State::insert(state.clone(), name).await {
-            GuiError::display_error_or_print(state.clone(), error.to_string());
+            GuiError::display_error_or_print(state.clone(), error);
         }
     }
 
     async fn insert_from_csv(state: Arc<State>) {
         if let Err(error) = State::insert_from_csv(state.clone()).await {
-            GuiError::display_error_or_print(state.clone(), error.to_string());
+            GuiError::display_error_or_print(state.clone(), error);
         }
     }
 
     async fn export_to_csv(state: Arc<State>) {
         if let Err(error) = State::export_to_csv(state.clone()).await {
-            GuiError::display_error_or_print(state.clone(), error.to_string());
+            GuiError::display_error_or_print(state.clone(), error);
         }
     }
 
     async fn rename(state: Arc<State>, name: String) {
         if let Err(error) = State::rename(state.clone(), name).await {
-            GuiError::display_error_or_print(state.clone(), error.to_string());
+            GuiError::display_error_or_print(state.clone(), error);
         }
     }
 
     async fn replace(state: Arc<State>, name: String) {
         if let Err(error) = State::replace(state.clone(), name).await {
-            GuiError::display_error_or_print(state.clone(), error.to_string());
+            GuiError::display_error_or_print(state.clone(), error);
         }
     }
 
     async fn remove(state: Arc<State>, name: String) {
         if let Err(error) = State::remove(state.clone(), name).await {
-            GuiError::display_error_or_print(state.clone(), error.to_string());
+            GuiError::display_error_or_print(state.clone(), error);
         }
     }
 
     async fn get(state: Arc<State>, name: String) {
         if let Err(error) = State::get(state.clone(), name).await {
-            GuiError::display_error_or_print(state.clone(), error.to_string());
+            GuiError::display_error_or_print(state.clone(), error);
         }
     }
 
@@ -633,7 +633,7 @@ impl Gui {
                         });
                     }
                     Err(error) => {
-                        GuiError::display_error_or_print(self.state.clone(), error.to_string());
+                        GuiError::display_error_or_print(self.state.clone(), error.into());
                     }
                 }
             });
@@ -737,7 +737,7 @@ impl Gui {
                 let mut buffer = match state.search_string.lock() {
                     Ok(buffer) => buffer,
                     Err(error) => {
-                        GuiError::display_error_or_print(state.clone(), error.to_string());
+                        GuiError::display_error_or_print(state.clone(), error.into());
                         return ();
                     }
                 };

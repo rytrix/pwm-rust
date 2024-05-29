@@ -8,19 +8,22 @@ use pwm_db::db_base::error::DatabaseError;
 pub enum GuiError {
     LockFail(String),
     RecvFail(String),
+    SendFail(String),
+    IoError(String),
     DatabaseError(String),
     NoFile,
     NoVault,
+    StringError(String),
     PasswordNotSame,
     Utf8Fail(String),
 }
 
 impl GuiError {
-    pub fn display_error_or_print(state: Arc<State>, error: String) {
+    pub fn display_error_or_print(state: Arc<State>, error: GuiError) {
         if let Err(display_error) = State::add_error(state, error.to_string()) {
             error!(
                 "Failed to display error \"{}\", because of error: \"{}\"",
-                error.to_string(),
+                error,
                 display_error.to_string()
             );
         }
@@ -32,9 +35,12 @@ impl std::fmt::Display for GuiError {
         return match self {
             Self::LockFail(msg) => f.write_fmt(std::format_args!("Failed to lock: {}", msg)),
             Self::RecvFail(msg) => f.write_fmt(std::format_args!("Failed to recv: {}", msg)),
+            Self::SendFail(msg) => f.write_fmt(std::format_args!("Failed to send: {}", msg)),
+            Self::IoError(msg) => f.write_fmt(std::format_args!("IO error: {}", msg)),
             Self::DatabaseError(msg) => f.write_fmt(std::format_args!("Vault error: {}", msg)),
             Self::NoFile => f.write_str("No file selected"),
             Self::NoVault => f.write_str("No vault opened"),
+            Self::StringError(msg) => f.write_fmt(std::format_args!("{}", msg)),
             Self::PasswordNotSame => f.write_str("Passwords do not match"),
             Self::Utf8Fail(msg) => f.write_fmt(std::format_args!("{}", msg)),
         };
@@ -55,6 +61,18 @@ impl From<DatabaseError> for GuiError {
     }
 }
 
+impl From<String> for GuiError {
+    fn from(value: String) -> Self {
+        Self::StringError(value)
+    }
+}
+
+impl From<std::io::Error> for GuiError {
+    fn from(value: std::io::Error) -> Self {
+        Self::IoError(value.to_string())
+    }
+}
+
 impl From<RecvError> for GuiError {
     fn from(value: RecvError) -> Self {
         Self::RecvFail(value.to_string())
@@ -63,6 +81,6 @@ impl From<RecvError> for GuiError {
 
 impl<T> From<SendError<T>> for GuiError {
     fn from(value: SendError<T>) -> Self {
-        Self::RecvFail(value.to_string())
+        Self::SendFail(value.to_string())
     }
 }
