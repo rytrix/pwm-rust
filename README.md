@@ -9,4 +9,4 @@ Passwords are sent to the system clipboard and are never visually visible, clear
 
 # Warning
 
-Version bumps are likely to break serialization, remaking a vault is required on a version bump (use csv export/import)
+Non-minor version bumps are likely to break serialization, remaking a vault is required on a version bump (use csv export/import)
