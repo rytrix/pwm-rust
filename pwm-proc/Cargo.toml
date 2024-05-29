@@ -7,4 +7,4 @@ edition = "2021"
 proc-macro = true
 
 [dependencies]
-getrandom = "0.2.14"
+getrandom = "0.2.15"
