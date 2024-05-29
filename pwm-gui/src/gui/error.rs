@@ -1,7 +1,10 @@
-use std::sync::{mpsc::{RecvError, SendError}, Arc, PoisonError};
+use std::sync::{
+    mpsc::{RecvError, SendError},
+    Arc, PoisonError,
+};
 
 use crate::state::State;
-use log::error;
+use log::{debug, error};
 use pwm_db::db_base::error::DatabaseError;
 
 #[derive(Debug)]
@@ -20,12 +23,22 @@ pub enum GuiError {
 
 impl GuiError {
     pub fn display_error_or_print(state: Arc<State>, error: GuiError) {
-        if let Err(display_error) = State::add_error(state, error.to_string()) {
-            error!(
-                "Failed to display error \"{}\", because of error: \"{}\"",
-                error,
-                display_error.to_string()
-            );
+        match error {
+            GuiError::SendFail(error) => {
+                debug!("{}", error);
+            }
+            GuiError::RecvFail(error) => {
+                debug!("{}", error);
+            }
+            _ => {
+                if let Err(display_error) = State::add_error(state, error.to_string()) {
+                    error!(
+                        "Failed to display error \"{}\", because of error: \"{}\"",
+                        error,
+                        display_error.to_string()
+                    );
+                }
+            }
         }
     }
 }
