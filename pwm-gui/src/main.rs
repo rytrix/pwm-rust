@@ -4,6 +4,7 @@ mod gui;
 mod state;
 mod timer;
 mod vault;
+mod config;
 
 use eframe::egui;
 use gui::Gui;

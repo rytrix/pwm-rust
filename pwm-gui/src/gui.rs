@@ -2,8 +2,9 @@ pub mod error;
 pub mod message;
 pub mod prompt;
 
-use crate::gui::error::GuiError;
+use crate::config::write_config;
 use crate::state::State;
+use crate::{config::get_config, gui::error::GuiError};
 
 use std::{path::PathBuf, sync::Arc};
 
@@ -36,11 +37,13 @@ pub struct Gui {
 
 impl Default for Gui {
     fn default() -> Self {
+        let config = get_config();
+
         Self {
-            scale: 2.0,
+            scale: config["scale"].as_f32().unwrap_or(2.0),
             update_scale: true,
 
-            darkmode: true,
+            darkmode: config["dark"].as_bool().unwrap_or(true),
 
             show_exit_confirmation_dialog: false,
             allowed_to_close: false,
@@ -246,10 +249,7 @@ impl Gui {
         let path = match State::get_prev_file(state.clone()) {
             Ok(path) => path,
             Err(error) => {
-                GuiError::display_error_or_print(
-                    state,
-                    error,
-                );
+                GuiError::display_error_or_print(state, error);
                 return;
             }
         };
@@ -885,6 +885,13 @@ impl Drop for Gui {
     fn drop(&mut self) {
         let mut senders = self.state.prompts.lock().unwrap();
         senders.clear();
+
+        let config = json::object! {
+            dark: self.darkmode,
+            scale: self.scale
+        };
+
+        write_config(config);
     }
 }
 
