@@ -1,7 +1,7 @@
 use std::env::VarError;
 
 use json::JsonValue;
-use log::{info, trace, warn};
+use log::{info, warn};
 
 fn default_config() -> JsonValue {
     json::object! {
