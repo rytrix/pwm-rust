@@ -15,7 +15,7 @@ fn get_config_dir() -> Result<std::path::PathBuf, VarError> {
     let app_data = std::env::var("HOME")? + "/.config";
 
     #[cfg(windows)]
-    let app_data = std::env::var("APP_DATA")?;
+    let app_data = std::env::var("APPDATA")?;
 
     let mut path = std::path::PathBuf::from(app_data);
     path.push("pwm");
