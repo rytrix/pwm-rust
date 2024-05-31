@@ -1,10 +1,14 @@
+use log::{trace, warn};
 #[cfg(feature = "use-compression")]
 use lz4_flex::compress_prepend_size;
 
-use pwm_lib::{encryption::{
-    default::{decrypt, encrypt},
-    EncryptionResult,
-}, zeroize::Zeroizing};
+use pwm_lib::{
+    encryption::{
+        default::{decrypt, encrypt},
+        EncryptionResult,
+    },
+    zeroize::Zeroizing,
+};
 
 use crate::db_base::error::DatabaseError;
 
@@ -57,6 +61,7 @@ impl DatabaseInterface for DatabaseEncrypted {
             return Err(DatabaseError::InvalidPassword);
         }
 
+        let mut failed_records = Vec::new();
         let mut rdr = csv::Reader::from_path(file)?;
         for record in rdr.records() {
             match record {
@@ -68,17 +73,35 @@ impl DatabaseInterface for DatabaseEncrypted {
                         match self.db.insert(key, data) {
                             Ok(()) => (),
                             Err(error) => {
-                                eprintln!("Failed to import {}", error.to_string());
+                                failed_records.push(String::from(key));
+                                warn!("pwm-db: Failed to import: {}", error.to_string());
                             }
                         };
                     }
-                    // println!("record {:?} {:?}", record.get(0), record.get(1));
+                    trace!(
+                        "pwm-db: attempted to import record: {:?}, {:?}",
+                        record.get(0),
+                        record.get(1)
+                    );
                 }
                 Err(_) => {}
             };
         }
 
-        Ok(())
+        if failed_records.len() == 0 {
+            Ok(())
+        } else {
+            let mut error_msg = String::new();
+            for (index, record) in failed_records.iter().enumerate() {
+                if index != failed_records.len() - 1 {
+                    let record = record.clone();
+                    error_msg.push_str((record + ", ").as_str());
+                } else {
+                    error_msg.push_str(record.as_str());
+                }
+            }
+            Err(DatabaseError::ImportError(error_msg))
+        }
     }
 
     fn export_to_csv(&mut self, file: &str, password: &[u8]) -> Result<(), DatabaseError> {

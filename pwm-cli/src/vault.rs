@@ -166,7 +166,7 @@ where
                         match self.import(name) {
                             Ok(()) => {}
                             Err(error) => {
-                                writeln!(self.writer, "Failed to import: {}", error.to_string())?;
+                                writeln!(self.writer, "{}", error.to_string())?;
                             }
                         }
                     } else {

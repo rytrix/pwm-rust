@@ -50,7 +50,7 @@ impl std::fmt::Display for GuiError {
             Self::RecvFail(msg) => f.write_fmt(std::format_args!("Failed to recv: {}", msg)),
             Self::SendFail(msg) => f.write_fmt(std::format_args!("Failed to send: {}", msg)),
             Self::IoError(msg) => f.write_fmt(std::format_args!("IO error: {}", msg)),
-            Self::DatabaseError(msg) => f.write_fmt(std::format_args!("Vault error: {}", msg)),
+            Self::DatabaseError(msg) => f.write_fmt(std::format_args!("{}", msg)),
             Self::NoFile => f.write_str("No file selected"),
             Self::NoVault => f.write_str("No vault opened"),
             Self::StringError(msg) => f.write_fmt(std::format_args!("{}", msg)),
