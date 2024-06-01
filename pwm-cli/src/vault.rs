@@ -16,6 +16,7 @@ where
     reader: I,
     writer: O,
     test_mode: bool,
+    clipboard: arboard::Clipboard,
 }
 
 impl<I, O> Vault<I, O>
@@ -46,12 +47,18 @@ where
 
         let db = DatabaseEncrypted::new(password.as_bytes())?;
 
+        let clipboard = match arboard::Clipboard::new() {
+            Ok(clipboard) => clipboard,
+            Err(error) => return Err(DatabaseError::ClipboardError(error.to_string())),
+        };
+
         Ok(Vault {
             db,
             changed: true,
             reader,
             writer,
             test_mode,
+            clipboard,
         })
     }
 
@@ -94,12 +101,18 @@ where
 
         let db = DatabaseEncrypted::new_deserialize_encrypted(&contents, password.as_bytes())?;
 
+        let clipboard = match arboard::Clipboard::new() {
+            Ok(clipboard) => clipboard,
+            Err(error) => return Err(DatabaseError::ClipboardError(error.to_string())),
+        };
+
         Ok(Vault {
             db,
-            changed: true,
+            changed: false,
             reader,
             writer,
             test_mode,
+            clipboard,
         })
     }
 
@@ -237,7 +250,22 @@ where
                                     }
                                 };
 
-                                writeln!(self.writer, "{}", pass.as_str())?;
+                                if self.test_mode {
+                                    writeln!(self.writer, "{}", pass.as_str())?;
+                                } else {
+                                    match self.clipboard.set_text(pass.as_str()) {
+                                        Ok(()) => {
+                                            writeln!(self.writer, "copied to clipboard")?;
+                                        }
+                                        Err(error) => {
+                                            writeln!(
+                                                self.writer,
+                                                "failed to copy to clipboard: {}",
+                                                error.to_string()
+                                            )?;
+                                        }
+                                    };
+                                }
                             }
                             Err(error) => {
                                 writeln!(self.writer, "Failed to get: {}", error.to_string())?;
@@ -633,7 +661,10 @@ mod tests {
     #[test]
     fn test_insert_get_extended_name() {
         let mut vault = new_vault("12\n12\n");
-        reset_cursors(&mut vault, "insert \"test 123\" 123\n12\nget \"test 123\"\n12\n");
+        reset_cursors(
+            &mut vault,
+            "insert \"test 123\" 123\n12\nget \"test 123\"\n12\n",
+        );
 
         run_command(&mut vault).unwrap();
         run_command(&mut vault).unwrap();
@@ -777,5 +808,14 @@ mod tests {
         std::fs::remove_file("tests/Vault").unwrap();
 
         assert_eq!(imported, exported);
+
+        reset_cursors(
+            &mut vault,
+            "q",
+        );
+        run_command(&mut vault).unwrap();
+
+        let string = output_to_string(&mut vault);
+        assert_eq!(string, "");
     }
 }

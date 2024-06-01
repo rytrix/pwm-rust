@@ -16,6 +16,7 @@ pub enum DatabaseError {
     InvalidCsv(String),
     IoError(String),
     CompressionError(String),
+    ClipboardError(String),
 }
 
 impl std::fmt::Display for DatabaseError {
@@ -35,6 +36,7 @@ impl std::fmt::Display for DatabaseError {
             Self::InvalidCsv(msg) => f.write_fmt(std::format_args!("Csv error: {}", msg)),
             Self::IoError(msg) => f.write_fmt(std::format_args!("Io error: {}", msg)),
             Self::CompressionError(msg) => f.write_fmt(std::format_args!("Compression error: {}", msg)),
+            Self::ClipboardError(msg) => f.write_fmt(std::format_args!("Clipboard error: {}", msg)),
         };
     }
 }
