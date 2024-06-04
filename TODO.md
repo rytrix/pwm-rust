@@ -8,16 +8,17 @@ drag drop vaults
 
 is it possible to refactor changed into vault directly instead of in the wrapper?
 
-save recently opened files
-ask to load recently opened file
+config for how many recent vaults can exist
+?confirm displayed vaults exist?
 
 options for strength of hashes (and maybe a benchmark for how long it'll take to hash)
 options for which encryption method to use
 
 more options for password generation (such as allowed characters and maybe entrophy)
 
-automatic saving?
-
 potential secret key file for additional security?
 
-?maybe I should just use gtk
+?maybe I should just use gtk (or improve the file menu to look more "native")
+
+test is putting weird values into password_len is a problem
+
