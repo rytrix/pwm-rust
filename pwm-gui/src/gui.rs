@@ -624,8 +624,7 @@ impl Gui {
                     ui.close_menu();
                 }
                 ui.menu_button("Open Recent", |ui| {
-                    ui.separator();
-                    if let Err(error) = Gui::display_recent_vaults_loop(self.state.clone(), ui, 2) {
+                    if let Err(error) = Gui::display_recent_vaults_loop(self.state.clone(), ui, 2, false) {
                         GuiError::display_error_or_print(self.state.clone(), error);
                     };
                 });
@@ -785,20 +784,41 @@ impl Gui {
         state: Arc<State>,
         ui: &mut egui::Ui,
         path_len: usize,
+        button_mode: bool,
     ) -> Result<(), GuiError> {
         let prev_vaults = state.prev_vaults.lock()?;
         for prev_vault in prev_vaults.iter() {
             ui.horizontal(|ui| {
-                let state_id = ui.id().with(format!("show_full_path_{}", prev_vault));
-                let mut show_full = ui.data_mut(|d| d.get_temp::<bool>(state_id).unwrap_or(false));
+                if button_mode {
+                    let state_id = ui.id().with(format!("show_full_path_{}", prev_vault));
+                    let mut show_full =
+                        ui.data_mut(|d| d.get_temp::<bool>(state_id).unwrap_or(false));
 
-                if show_full {
-                    if ui
-                        .add(Label::new(prev_vault).sense(Sense::click()))
-                        .clicked()
-                    {
-                        show_full = false;
-                    }
+                    if show_full {
+                        if ui
+                            .add(Label::new(prev_vault).sense(Sense::click()))
+                            .clicked()
+                        {
+                            show_full = false;
+                        }
+                    } else {
+                        if ui
+                            .add(
+                                Label::new(get_file_path_back_count(prev_vault.into(), path_len))
+                                    .sense(Sense::click()),
+                            )
+                            .clicked()
+                        {
+                            show_full = true;
+                        }
+                    };
+
+                    ui.data_mut(|d| d.insert_temp(state_id, show_full));
+
+                    ui.add_space(6.0);
+                    if ui.button("Open").clicked() {
+                        tokio::spawn(Gui::file_open_named(state.clone(), prev_vault.clone()));
+                    };
                 } else {
                     if ui
                         .add(
@@ -807,16 +827,9 @@ impl Gui {
                         )
                         .clicked()
                     {
-                        show_full = true;
+                        tokio::spawn(Gui::file_open_named(state.clone(), prev_vault.clone()));
                     }
-                };
-
-                ui.data_mut(|d| d.insert_temp(state_id, show_full));
-
-                ui.add_space(6.0);
-                if ui.button("Open").clicked() {
-                    tokio::spawn(Gui::file_open_named(state.clone(), prev_vault.clone()));
-                };
+                }
             });
             ui.separator();
         }
@@ -827,7 +840,7 @@ impl Gui {
     fn display_recent_vaults(state: Arc<State>, ui: &mut egui::Ui) -> Result<(), GuiError> {
         ui.heading("Recent files");
         ui.separator();
-        Gui::display_recent_vaults_loop(state, ui, 3)?;
+        Gui::display_recent_vaults_loop(state, ui, 3, true)?;
 
         Ok(())
     }
