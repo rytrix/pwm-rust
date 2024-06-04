@@ -636,26 +636,26 @@ impl Gui {
                     self.update_scale = false;
                 };
 
-                let response = ui.add_sized(
-                    [100.0, 20.0],
-                    egui::TextEdit::singleline(&mut self.prev_vaults_max_length_text),
-                );
-                if response.changed() {
-                    match self.prev_vaults_max_length_text.parse() {
-                        Ok(max) => {
-                            tokio::spawn(State::update_prev_vaults_max_length(
-                                self.state.clone(),
-                                max,
-                            ));
-                        }
-                        Err(error) => {
-                            GuiError::display_error_or_print(
-                                self.state.clone(),
-                                error.into(),
-                            );
-                        }
-                    };
-                }
+                ui.horizontal(|ui| {
+                    ui.label("Max Recent Vaults");
+                    let response = ui.add_sized(
+                        [30.0, 20.0],
+                        egui::TextEdit::singleline(&mut self.prev_vaults_max_length_text),
+                    );
+                    if response.changed() {
+                        match self.prev_vaults_max_length_text.parse() {
+                            Ok(max) => {
+                                tokio::spawn(State::update_prev_vaults_max_length(
+                                    self.state.clone(),
+                                    max,
+                                ));
+                            }
+                            Err(error) => {
+                                GuiError::display_error_or_print(self.state.clone(), error.into());
+                            }
+                        };
+                    }
+                });
             });
 
             ui.menu_button("Encryption", |ui| {
@@ -1007,7 +1007,7 @@ impl Drop for Gui {
                     dark: self.darkmode,
                     scale: self.scale,
                     prev_vaults: prev_vaults_vec[0..slice_len],
-                    prev_vaults_max: slice_len,
+                    prev_vaults_max: max_length,
                 };
 
                 write_config(config);
