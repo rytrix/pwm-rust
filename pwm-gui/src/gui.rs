@@ -105,7 +105,7 @@ impl eframe::App for Gui {
             style.visuals.widgets.open.rounding = Rounding::same(1.5);
 
             style.spacing.item_spacing = Vec2::new(1.2, 1.2);
-            style.spacing.menu_width = 90.0;
+            style.spacing.menu_width = 100.0;
         });
 
         let mut frame = egui::Frame::central_panel(&egui::Style::default())
@@ -210,6 +210,18 @@ impl Gui {
             .as_bool()
             .expect("default config does not contain dark");
         self.prev_vaults_max_length_text = defaults["prev_vaults_max"].to_string();
+
+        match self.prev_vaults_max_length_text.parse() {
+            Ok(max) => {
+                tokio::spawn(State::update_prev_vaults_max_length(
+                    self.state.clone(),
+                    max,
+                ));
+            }
+            Err(error) => {
+                GuiError::display_error_or_print(self.state.clone(), error.into());
+            }
+        }
     }
 
     pub fn open_file_dialog(state: Arc<State>) -> Option<PathBuf> {
@@ -776,7 +788,7 @@ impl Gui {
                 match self.state.password_length.lock() {
                     Ok(mut password_length) => {
                         ui.menu_button("Password Generation", |ui| {
-                            ui.label("Length");
+                            ui.label("Password Length");
                             ui.horizontal(|ui| {
                                 let response = ui.add_sized(
                                     [40.0, 20.0],
