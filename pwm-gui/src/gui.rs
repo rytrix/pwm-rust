@@ -61,7 +61,7 @@ impl Default for Gui {
         let max_len = config["prev_vaults_max"].as_usize().unwrap_or(8);
 
         Self {
-            scale: config["scale"].as_f32().unwrap_or(2.0),
+            scale: config["scale"].as_f32().unwrap_or(1.85),
             update_scale: true,
 
             darkmode: config["dark"].as_bool().unwrap_or(true),
