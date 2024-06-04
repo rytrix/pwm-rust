@@ -64,6 +64,8 @@ impl Default for Gui {
 
         let max_len = config["prev_vaults_max"].as_usize().unwrap_or(8);
 
+        let pass_len = config["password_length"].as_usize().unwrap_or(32);
+
         Self {
             scale: config["scale"].as_f32().unwrap_or(1.85),
             update_scale: true,
@@ -81,7 +83,7 @@ impl Default for Gui {
             show_close_vault_confirmation_dialog: false,
             close_vault_confirmed: false,
 
-            state: Arc::new(State::new(prev_vaults, max_len)),
+            state: Arc::new(State::new(prev_vaults, max_len, pass_len)),
         }
     }
 }
@@ -217,6 +219,18 @@ impl Gui {
                     self.state.clone(),
                     max,
                 ));
+            }
+            Err(error) => {
+                GuiError::display_error_or_print(self.state.clone(), error.into());
+            }
+        }
+
+        match self.state.password_length.lock() {
+            Ok(mut pw_len) => {
+                *pw_len = defaults["password_length"]
+                    .as_usize()
+                    .expect("password_length not present in default config")
+                    .to_string();
             }
             Err(error) => {
                 GuiError::display_error_or_print(self.state.clone(), error.into());
@@ -1155,11 +1169,26 @@ impl Drop for Gui {
                     max_length
                 };
 
+                let password_len = match self.state.password_length.lock() {
+                    Ok(password_length) => match password_length.parse() {
+                        Ok(password_len) => password_len,
+                        Err(_error) => {
+                            warn!("failed to parse password_length string, defaulting to 32");
+                            32
+                        }
+                    },
+                    Err(error) => {
+                        warn!("State::password_length was unable to be unlocked defaulting to \"32\": {}", error.to_string());
+                        32
+                    }
+                };
+
                 let config = json::object! {
                     dark: self.darkmode,
                     scale: self.scale,
                     prev_vaults: prev_vaults_vec[0..slice_len],
                     prev_vaults_max: max_length,
+                    password_length: password_len,
                 };
 
                 write_config(config);

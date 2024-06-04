@@ -9,6 +9,7 @@ pub fn default_config() -> JsonValue {
         scale: 1.85,
         prev_vaults: [],
         prev_vaults_max: 8,
+        password_length: 32,
     }
 }
 

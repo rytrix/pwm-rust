@@ -25,14 +25,14 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(prev_vaults: VecDeque<String>, prev_vaults_max_length: usize) -> Self {
+    pub fn new(prev_vaults: VecDeque<String>, prev_vaults_max_length: usize, password_length: usize) -> Self {
         Self {
             messages: Mutex::new(Vec::new()),
             prompts: Mutex::new(Vec::new()),
             vault: Mutex::new(None),
             clipboard_string: Mutex::new(None),
             search_string: Mutex::new(String::new()),
-            password_length: Mutex::new(String::from("32")),
+            password_length: Mutex::new(format!("{}", password_length)),
             prev_vaults: Mutex::new(prev_vaults),
             prev_vaults_max_length: Mutex::new(prev_vaults_max_length),
         }
