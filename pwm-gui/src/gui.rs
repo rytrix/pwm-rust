@@ -37,6 +37,10 @@ pub struct Gui {
     show_new_vault_confirmation_dialog: bool,
     create_new_vault_confirmed: bool,
 
+    // Close vault confirmation if a vault was modified
+    show_close_vault_confirmation_dialog: bool,
+    close_vault_confirmed: bool,
+
     state: Arc<State>,
 }
 
@@ -74,6 +78,9 @@ impl Default for Gui {
             show_new_vault_confirmation_dialog: false,
             create_new_vault_confirmed: false,
 
+            show_close_vault_confirmation_dialog: false,
+            close_vault_confirmed: false,
+
             state: Arc::new(State::new(prev_vaults, max_len)),
         }
     }
@@ -98,7 +105,11 @@ impl eframe::App for Gui {
             style.spacing.item_spacing = Vec2::new(1.2, 1.2);
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        //let frame = egui::Frame::default().inner_margin(egui::Margin::ZERO);
+        let frame = egui::Frame::central_panel(&egui::Style::default())
+            .inner_margin(egui::Margin::same(1.0));
+
+        egui::CentralPanel::default().frame(frame).show(ctx, |ui| {
             if ctx.input(|i| i.viewport().close_requested()) {
                 if !self.allowed_to_close {
                     if Gui::was_vault_modified(self.state.clone()) {
@@ -120,9 +131,20 @@ impl eframe::App for Gui {
                 }
             }
 
+            if self.show_close_vault_confirmation_dialog {
+                if let Err(error) = self.display_close_vault_confirmation(ctx) {
+                    GuiError::display_error_or_print(self.state.clone(), error);
+                }
+            }
+
             if self.create_new_vault_confirmed {
                 tokio::spawn(Gui::file_new_no_check(self.state.clone()));
                 self.create_new_vault_confirmed = false;
+            }
+
+            if self.close_vault_confirmed {
+                tokio::spawn(Gui::close_vault(self.state.clone()));
+                self.close_vault_confirmed = false;
             }
 
             if self.update_scale {
@@ -163,7 +185,7 @@ impl eframe::App for Gui {
                 GuiError::display_error_or_print(self.state.clone(), error);
             }
 
-            if let Err(error) = Gui::display_vault(self.state.clone(), ui) {
+            if let Err(error) = self.display_vault(ui) {
                 GuiError::display_error_or_print(self.state.clone(), error);
             }
         });
@@ -220,6 +242,13 @@ impl Gui {
 
     async fn file_new_no_check(state: Arc<State>) {
         let error = State::create_vault(state.clone()).await;
+        if let Err(error) = error {
+            GuiError::display_error_or_print(state, error);
+        }
+    }
+
+    async fn close_vault(state: Arc<State>) {
+        let error = State::close_vault(state.clone()).await;
         if let Err(error) = error {
             GuiError::display_error_or_print(state, error);
         }
@@ -527,9 +556,7 @@ impl Gui {
             }
         };
         if let Some(vault) = &*vault {
-            if vault.changed {
-                return true;
-            }
+            return vault.changed;
         }
 
         false
@@ -612,6 +639,43 @@ impl Gui {
         Ok(())
     }
 
+    fn display_close_vault_confirmation(&mut self, ctx: &egui::Context) -> Result<(), GuiError> {
+        egui::Window::new("")
+            .collapsible(false)
+            .auto_sized()
+            .resizable(false)
+            .title_bar(false)
+            .show(ctx, |ui| {
+                ui.allocate_ui_with_layout(
+                    egui::Vec2 { x: 150.0, y: 50.0 },
+                    Layout::top_down(egui::Align::Center),
+                    |ui| {
+                        ui.label("Vault has been modified");
+                        ui.label("Close vault anyways?");
+
+                        ui.columns(2, |columns| {
+                            if columns[0]
+                                .add_sized(Vec2::new(15.0, 15.0), egui::Button::new("Yes"))
+                                .clicked()
+                            {
+                                self.show_close_vault_confirmation_dialog = false;
+                                self.close_vault_confirmed = true;
+                            }
+
+                            if columns[1]
+                                .add_sized(Vec2::new(15.0, 15.0), egui::Button::new("No"))
+                                .clicked()
+                            {
+                                self.show_close_vault_confirmation_dialog = false;
+                                self.close_vault_confirmed = false;
+                            }
+                        });
+                    },
+                );
+            });
+        Ok(())
+    }
+
     fn display_header(&mut self, ui: &mut egui::Ui) -> Result<(), GuiError> {
         ui.horizontal(|ui| {
             ui.menu_button("File", |ui| {
@@ -624,7 +688,9 @@ impl Gui {
                     ui.close_menu();
                 }
                 ui.menu_button("Open Recent", |ui| {
-                    if let Err(error) = Gui::display_recent_vaults_loop(self.state.clone(), ui, 2, false) {
+                    if let Err(error) =
+                        Gui::display_recent_vaults_loop(self.state.clone(), ui, 2, false)
+                    {
                         GuiError::display_error_or_print(self.state.clone(), error);
                     };
                 });
@@ -794,6 +860,7 @@ impl Gui {
                     let mut show_full =
                         ui.data_mut(|d| d.get_temp::<bool>(state_id).unwrap_or(false));
 
+                    ui.add_space(3.0);
                     if show_full {
                         if ui
                             .add(Label::new(prev_vault).sense(Sense::click()))
@@ -838,23 +905,27 @@ impl Gui {
     }
 
     fn display_recent_vaults(state: Arc<State>, ui: &mut egui::Ui) -> Result<(), GuiError> {
-        ui.heading("Recent files");
+        ui.horizontal(|ui| {
+            ui.add_space(3.0);
+            ui.heading("Recent files");
+        });
         ui.separator();
         Gui::display_recent_vaults_loop(state, ui, 3, true)?;
 
         Ok(())
     }
 
-    fn display_vault(state: Arc<State>, ui: &mut egui::Ui) -> Result<(), GuiError> {
-        let mut vault = state.vault.lock()?;
+    fn display_vault(&mut self, ui: &mut egui::Ui) -> Result<(), GuiError> {
+        let mut vault = self.state.vault.lock()?;
         let vault = match &mut *vault {
             Some(vault) => vault,
-            None => return Gui::display_recent_vaults(state.clone(), ui),
+            None => return Gui::display_recent_vaults(self.state.clone(), ui),
         };
 
         let name = vault.name_buffer.clone();
 
         ui.horizontal(|ui| {
+            ui.add_space(3.0);
             ui.heading(name);
             ui.add_space(6.0);
             let response = ui.button("Search");
@@ -868,10 +939,10 @@ impl Gui {
             }
 
             egui::popup_below_widget(ui, popup_id, &response, |ui| {
-                let mut buffer = match state.search_string.lock() {
+                let mut buffer = match self.state.search_string.lock() {
                     Ok(buffer) => buffer,
                     Err(error) => {
-                        GuiError::display_error_or_print(state.clone(), error.into());
+                        GuiError::display_error_or_print(self.state.clone(), error.into());
                         return ();
                     }
                 };
@@ -901,12 +972,12 @@ impl Gui {
                     response.request_focus();
 
                     if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                        tokio::spawn(Gui::insert(state.clone(), vault.insert_buffer.clone()));
+                        tokio::spawn(Gui::insert(self.state.clone(), vault.insert_buffer.clone()));
                         vault.insert_buffer.clear();
                         ui.memory_mut(|mem| mem.close_popup());
                     }
                     if ui.button("Enter").clicked() {
-                        tokio::spawn(Gui::insert(state.clone(), vault.insert_buffer.clone()));
+                        tokio::spawn(Gui::insert(self.state.clone(), vault.insert_buffer.clone()));
                         vault.insert_buffer.clear();
                         ui.memory_mut(|mem| mem.close_popup());
                     }
@@ -915,20 +986,28 @@ impl Gui {
 
             ui.menu_button("Csv", |ui| {
                 if ui.button("Import").clicked() {
-                    tokio::spawn(Gui::insert_from_csv(state.clone()));
+                    tokio::spawn(Gui::insert_from_csv(self.state.clone()));
                     ui.close_menu();
                 }
 
                 if ui.button("Export").clicked() {
-                    tokio::spawn(Gui::export_to_csv(state.clone()));
+                    tokio::spawn(Gui::export_to_csv(self.state.clone()));
                     ui.close_menu();
                 }
             });
+
+            if ui.button("Close").clicked() {
+                if vault.changed {
+                    self.show_close_vault_confirmation_dialog = true;
+                } else {
+                    tokio::spawn(Gui::close_vault(self.state.clone()));
+                }
+            };
         });
 
         ui.separator();
 
-        let list = vault.list_fuzzy_match(state.search_string.lock()?.as_str())?;
+        let list = vault.list_fuzzy_match(self.state.search_string.lock()?.as_str())?;
         let builder = TableBuilder::new(ui)
             .striped(true)
             .resizable(true)
@@ -940,6 +1019,7 @@ impl Gui {
         builder
             .header(20.0, |mut header| {
                 header.col(|ui| {
+                    ui.add_space(3.0);
                     ui.strong("Username");
                 });
                 header.col(|ui| {
@@ -953,24 +1033,26 @@ impl Gui {
                     body.row(row_height, |mut row| {
                         let name = &list[row_index];
                         row.col(|ui| {
+                            ui.add_space(3.0);
                             ui.label(format!("{}", name.clone()));
                         });
                         row.col(|ui| {
                             ui.add_space(6.0);
                             if ui.button("Get").clicked() {
-                                tokio::spawn(Gui::get(state.clone(), name.clone()));
+                                tokio::spawn(Gui::get(self.state.clone(), name.clone()));
                             }
+                            ui.add_space(3.0);
                             ui.menu_button("Modify", |ui| {
                                 if ui.button("Rename").clicked() {
-                                    tokio::spawn(Gui::rename(state.clone(), name.clone()));
+                                    tokio::spawn(Gui::rename(self.state.clone(), name.clone()));
                                     ui.close_menu();
                                 }
                                 if ui.button("Replace").clicked() {
-                                    tokio::spawn(Gui::replace(state.clone(), name.clone()));
+                                    tokio::spawn(Gui::replace(self.state.clone(), name.clone()));
                                     ui.close_menu();
                                 }
                                 if ui.button("Delete").clicked() {
-                                    tokio::spawn(Gui::remove(state.clone(), name.clone()));
+                                    tokio::spawn(Gui::remove(self.state.clone(), name.clone()));
                                     ui.close_menu();
                                 }
                             });

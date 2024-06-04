@@ -54,6 +54,12 @@ impl State {
         Ok(())
     }
 
+    pub async fn close_vault(state: Arc<State>) -> Result<(), GuiError> {
+        let mut vault = state.vault.lock()?;
+        *vault = None;
+        Ok(())
+    }
+
     pub async fn open_vault_from_file(state: Arc<State>, file: String) -> Result<(), GuiError> {
         let receiver = Self::add_password_prompt(
             state.clone(),
