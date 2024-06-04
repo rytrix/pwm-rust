@@ -17,7 +17,3 @@ options for which encryption method to use
 more options for password generation (such as allowed characters and maybe entrophy)
 
 potential secret key file for additional security?
-
-?maybe I should just use gtk (or improve the file menu to look more "native")
-custom buttons would be nice or better appearance
-
