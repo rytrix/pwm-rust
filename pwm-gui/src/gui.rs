@@ -622,6 +622,7 @@ impl Gui {
                     ui.close_menu();
                 }
                 ui.menu_button("Open Recent", |ui| {
+                    ui.separator();
                     if let Err(error) = Gui::display_recent_vaults_loop(self.state.clone(), ui, 2) {
                         GuiError::display_error_or_print(self.state.clone(), error);
                     };
