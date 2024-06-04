@@ -4,6 +4,7 @@ use crate::gui::message::Message;
 use crate::gui::{error::GuiError, get_file_name, Gui};
 use crate::vault::Vault;
 
+use std::collections::VecDeque;
 use std::path::Path;
 use std::sync::mpsc::{channel, Receiver};
 use std::sync::Arc;
@@ -19,10 +20,11 @@ pub struct State {
     pub clipboard_string: Mutex<Option<Zeroizing<String>>>,
     pub search_string: Mutex<String>,
     pub password_length: Mutex<String>,
+    pub prev_vaults: Mutex<VecDeque<String>>,
 }
 
-impl Default for State {
-    fn default() -> Self {
+impl State {
+    pub fn new(prev_vaults: VecDeque<String>) -> Self {
         Self {
             messages: Mutex::new(Vec::new()),
             prompts: Mutex::new(Vec::new()),
@@ -30,11 +32,10 @@ impl Default for State {
             clipboard_string: Mutex::new(None),
             search_string: Mutex::new(String::new()),
             password_length: Mutex::new(String::from("32")),
+            prev_vaults: Mutex::new(prev_vaults),
         }
     }
-}
 
-impl State {
     pub async fn create_vault(state: Arc<State>) -> Result<(), GuiError> {
         let password = State::add_confirmation_password_prompt(
             state.clone(),
@@ -51,15 +52,13 @@ impl State {
         Ok(())
     }
 
-    pub async fn open_vault_from_file(state: Arc<State>) -> Result<(), GuiError> {
-        let file = match Gui::open_file_dialog(state.clone()) {
-            Some(file) => file.display().to_string(),
-            None => return Err(GuiError::NoFile),
-        };
-
+    pub async fn open_vault_from_file(state: Arc<State>, file: String) -> Result<(), GuiError> {
         let receiver = Self::add_password_prompt(
             state.clone(),
-            format!("Enter {}'s master password", get_file_name(file.clone().into())),
+            format!(
+                "Enter {}'s master password",
+                get_file_name(file.clone().into())
+            ),
         )?;
         let password = receiver.recv()?;
 
@@ -69,7 +68,37 @@ impl State {
             Err(error) => return Err(GuiError::DatabaseError(error.to_string())),
         };
 
+        State::append_vault_path_to_prev_vaults(state.clone(), file)?;
+
         Ok(())
+    }
+
+    fn append_vault_path_to_prev_vaults(state: Arc<State>, file: String) -> Result<(), GuiError> {
+        let mut prev_vaults = state.prev_vaults.lock()?;
+
+        let mut remove_list = VecDeque::new();
+        for (index, val) in prev_vaults.iter().enumerate() {
+            if val.eq(&file) {
+                remove_list.push_front(index);
+            }
+        }
+
+        for index in remove_list {
+            let _ = prev_vaults.remove(index);
+        }
+
+        prev_vaults.push_front(file);
+        
+        Ok(())
+    }
+
+    pub async fn open_vault_from_file_dialog(state: Arc<State>) -> Result<(), GuiError> {
+        let file = match Gui::open_file_dialog(state.clone()) {
+            Some(file) => file.display().to_string(),
+            None => return Err(GuiError::NoFile),
+        };
+
+        State::open_vault_from_file(state, file).await
     }
 
     pub async fn save_vault_to_file(

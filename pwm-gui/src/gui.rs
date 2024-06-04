@@ -6,11 +6,13 @@ use crate::config::write_config;
 use crate::state::State;
 use crate::{config::get_config, gui::error::GuiError};
 
+use std::collections::VecDeque;
+use std::path::Component;
 use std::{path::PathBuf, sync::Arc};
 
-use eframe::egui::{self, Key, Layout, Modifiers, Vec2};
+use eframe::egui::{self, Key, Label, Layout, Modifiers, Sense, Vec2};
 use egui_extras::{Column, TableBuilder};
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 
 use pwm_lib::{
     crypt_file::{decrypt_file, encrypt_file},
@@ -38,6 +40,20 @@ pub struct Gui {
 impl Default for Gui {
     fn default() -> Self {
         let config = get_config();
+        let prev_vaults_json = &config["prev_vaults"];
+        let mut prev_vaults = VecDeque::new();
+        debug!(
+            "prev_vaults_json is array: {} members: {:?}",
+            prev_vaults_json.is_array(),
+            prev_vaults_json
+        );
+        for value in prev_vaults_json.members() {
+            debug!("prev_vault_member: {:?}", value);
+            if let Some(string) = value.as_str() {
+                prev_vaults.push_back(string.to_string());
+            }
+        }
+        info!("prev_vaults: {:?}", prev_vaults);
 
         Self {
             scale: config["scale"].as_f32().unwrap_or(2.0),
@@ -51,7 +67,7 @@ impl Default for Gui {
             show_new_vault_confirmation_dialog: false,
             create_new_vault_confirmed: false,
 
-            state: Arc::new(State::default()),
+            state: Arc::new(State::new(prev_vaults)),
         }
     }
 }
@@ -195,7 +211,15 @@ impl Gui {
     }
 
     async fn file_open(state: Arc<State>) {
-        let error = State::open_vault_from_file(state.clone()).await;
+        let error = State::open_vault_from_file_dialog(state.clone()).await;
+
+        if let Err(error) = error {
+            GuiError::display_error_or_print(state, error);
+        }
+    }
+
+    async fn file_open_named(state: Arc<State>, name: String) {
+        let error = State::open_vault_from_file(state.clone(), name).await;
 
         if let Err(error) = error {
             GuiError::display_error_or_print(state, error);
@@ -575,6 +599,11 @@ impl Gui {
                     tokio::spawn(Gui::file_open(self.state.clone()));
                     ui.close_menu();
                 }
+                ui.menu_button("Open Recent", |ui| {
+                    if let Err(error) = Gui::display_recent_vaults_loop(self.state.clone(), ui, 2) {
+                        GuiError::display_error_or_print(self.state.clone(), error);
+                    };
+                });
                 if ui.button("Save").clicked() {
                     tokio::spawn(Gui::file_save(self.state.clone()));
                     ui.close_menu();
@@ -650,7 +679,7 @@ impl Gui {
     fn display_prompts(state: Arc<State>, ui: &mut egui::Ui) -> Result<(), GuiError> {
         let mut prompts = state.prompts.lock()?;
         let mut count = 0;
-        let mut remove_list = Vec::<usize>::new();
+        let mut remove_list = VecDeque::<usize>::new();
 
         if prompts.len() <= 0 {
             return Ok(());
@@ -662,7 +691,7 @@ impl Gui {
                     ui.label(prompt.prompt.as_str());
                     let (remove, _) = prompt.prompt_ui(ui);
                     if remove {
-                        remove_list.push(count);
+                        remove_list.push_front(count);
                     }
                 });
             });
@@ -671,9 +700,6 @@ impl Gui {
         }
 
         ui.separator();
-
-        // Remove list goes backwards
-        remove_list.reverse();
 
         for i in remove_list {
             prompts.remove(i);
@@ -685,7 +711,7 @@ impl Gui {
     fn display_messages(state: Arc<State>, ui: &mut egui::Ui) -> Result<(), GuiError> {
         let mut messages = state.messages.lock()?;
         let mut count = 0;
-        let mut remove_list = Vec::<usize>::new();
+        let mut remove_list = VecDeque::<usize>::new();
 
         if messages.len() <= 0 {
             return Ok(());
@@ -695,15 +721,12 @@ impl Gui {
             if !message.is_complete() {
                 message.display(ui);
             } else {
-                remove_list.push(count);
+                remove_list.push_front(count);
             }
             count += 1;
         }
 
         ui.separator();
-
-        // Remove list goes backwards
-        remove_list.reverse();
 
         for i in remove_list {
             messages.remove(i);
@@ -712,11 +735,57 @@ impl Gui {
         Ok(())
     }
 
+    fn display_recent_vaults_loop(state: Arc<State>, ui: &mut egui::Ui, path_len: usize) -> Result<(), GuiError> {
+        let prev_vaults = state.prev_vaults.lock()?;
+        for prev_vault in prev_vaults.iter() {
+            ui.horizontal(|ui| {
+                let state_id = ui.id().with(format!("show_full_path_{}", prev_vault));
+                let mut show_full = ui.data_mut(|d| d.get_temp::<bool>(state_id).unwrap_or(false));
+
+                if show_full {
+                    if ui
+                        .add(Label::new(prev_vault).sense(Sense::click()))
+                        .clicked()
+                    {
+                        show_full = false;
+                    }
+                } else {
+                    if ui
+                        .add(
+                            Label::new(get_file_path_back_count(prev_vault.into(), path_len))
+                                .sense(Sense::click()),
+                        )
+                        .clicked()
+                    {
+                        show_full = true;
+                    }
+                };
+
+                ui.data_mut(|d| d.insert_temp(state_id, show_full));
+
+                if ui.button("Open").clicked() {
+                    tokio::spawn(Gui::file_open_named(state.clone(), prev_vault.clone()));
+                };
+            });
+            ui.separator();
+        }
+
+        Ok(())
+    }
+
+    fn display_recent_vaults(state: Arc<State>, ui: &mut egui::Ui) -> Result<(), GuiError> {
+        ui.heading("Recent files");
+        ui.separator();
+        Gui::display_recent_vaults_loop(state, ui, 3)?;
+
+        Ok(())
+    }
+
     fn display_vault(state: Arc<State>, ui: &mut egui::Ui) -> Result<(), GuiError> {
         let mut vault = state.vault.lock()?;
         let vault = match &mut *vault {
             Some(vault) => vault,
-            None => return Ok(()),
+            None => return Gui::display_recent_vaults(state.clone(), ui),
         };
 
         let name = vault.name_buffer.clone();
@@ -883,15 +952,32 @@ impl Gui {
 
 impl Drop for Gui {
     fn drop(&mut self) {
-        let mut senders = self.state.prompts.lock().unwrap();
-        senders.clear();
+        match self.state.prev_vaults.lock() {
+            Ok(prev_vaults) => {
+                let prev_vaults_vec: Vec<String> =
+                    prev_vaults.iter().map(|value| value.clone()).collect();
 
-        let config = json::object! {
-            dark: self.darkmode,
-            scale: self.scale
+                const MAX_LENGTH: usize = 8;
+
+                let slice_len = if prev_vaults_vec.len() < MAX_LENGTH {
+                    prev_vaults_vec.len()
+                } else {
+                    MAX_LENGTH
+                };
+
+                let config = json::object! {
+                    dark: self.darkmode,
+                    scale: self.scale,
+                    prev_vaults: prev_vaults_vec[0..slice_len],
+                };
+
+                write_config(config);
+            }
+            Err(error) => warn!("Failed to save config: {}", error.to_string()),
         };
 
-        write_config(config);
+        let mut senders = self.state.prompts.lock().unwrap();
+        senders.clear();
     }
 }
 
@@ -906,4 +992,17 @@ pub fn get_file_name(path: PathBuf) -> String {
     };
 
     file
+}
+
+pub fn get_file_path_back_count(path: PathBuf, back_count: usize) -> String {
+    if path.components().count() <= back_count {
+        return path.display().to_string();
+    }
+
+    let components = path.components().collect::<Vec<Component>>();
+    let result = components[components.len() - back_count..]
+        .iter()
+        .collect::<PathBuf>();
+
+    result.display().to_string()
 }

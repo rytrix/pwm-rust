@@ -6,7 +6,8 @@ use log::{info, warn};
 fn default_config() -> JsonValue {
     json::object! {
         dark: true,
-        scale: 2.0
+        scale: 2.0,
+        prev_vaults: []
     }
 }
 
