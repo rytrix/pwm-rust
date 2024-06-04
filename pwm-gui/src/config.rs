@@ -3,7 +3,7 @@ use std::env::VarError;
 use json::JsonValue;
 use log::{info, warn};
 
-fn default_config() -> JsonValue {
+pub fn default_config() -> JsonValue {
     json::object! {
         dark: true,
         scale: 1.85,

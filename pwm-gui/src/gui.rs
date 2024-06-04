@@ -2,7 +2,7 @@ pub mod error;
 pub mod message;
 pub mod prompt;
 
-use crate::config::write_config;
+use crate::config::{default_config, write_config};
 use crate::state::State;
 use crate::{config::get_config, gui::error::GuiError};
 
@@ -91,10 +91,10 @@ impl eframe::App for Gui {
         ctx.style_mut(|style: &mut Style| {
             //style.visuals.button_frame = false;
             style.visuals.widgets.noninteractive.weak_bg_fill = Color32::from_gray(30);
-            style.visuals.widgets.active.weak_bg_fill = Color32::from_gray(42);
-            style.visuals.widgets.inactive.weak_bg_fill = Color32::from_gray(42);
+            style.visuals.widgets.active.weak_bg_fill = Color32::from_gray(38);
+            style.visuals.widgets.inactive.weak_bg_fill = Color32::from_gray(38);
             style.visuals.widgets.hovered.weak_bg_fill = Color32::from_gray(47);
-            style.visuals.widgets.open.weak_bg_fill = Color32::from_gray(42);
+            style.visuals.widgets.open.weak_bg_fill = Color32::from_gray(38);
 
             style.visuals.widgets.noninteractive.rounding = Rounding::same(1.5);
             style.visuals.widgets.active.rounding = Rounding::same(1.5);
@@ -103,6 +103,7 @@ impl eframe::App for Gui {
             style.visuals.widgets.open.rounding = Rounding::same(1.5);
 
             style.spacing.item_spacing = Vec2::new(1.2, 1.2);
+            style.spacing.menu_width = 90.0;
         });
 
         //let frame = egui::Frame::default().inner_margin(egui::Margin::ZERO);
@@ -193,6 +194,19 @@ impl eframe::App for Gui {
 }
 
 impl Gui {
+    fn reset_settings(&mut self) {
+        let defaults = default_config();
+
+        self.scale = defaults["scale"]
+            .as_f32()
+            .expect("default config does not contain scale");
+        self.update_scale = true;
+        self.darkmode = defaults["dark"]
+            .as_bool()
+            .expect("default config does not contain dark");
+        self.prev_vaults_max_length_text = defaults["prev_vaults_max"].to_string();
+    }
+
     pub fn open_file_dialog(state: Arc<State>) -> Option<PathBuf> {
         let mut dialog = rfd::FileDialog::new();
 
@@ -739,6 +753,10 @@ impl Gui {
                         };
                     }
                 });
+
+                if ui.button("Reset to Defaults").clicked() {
+                    self.reset_settings();
+                };
             });
 
             ui.menu_button("Encryption", |ui| {
