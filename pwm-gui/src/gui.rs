@@ -94,6 +94,8 @@ impl eframe::App for Gui {
             style.visuals.widgets.inactive.rounding = Rounding::same(1.5);
             style.visuals.widgets.hovered.rounding = Rounding::same(1.5);
             style.visuals.widgets.open.rounding = Rounding::same(1.5);
+
+            style.spacing.item_spacing = Vec2::new(1.2, 1.2);
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -689,7 +691,7 @@ impl Gui {
                             ui.label("Length");
                             ui.horizontal(|ui| {
                                 let response = ui.add_sized(
-                                    [100.0, 20.0],
+                                    [40.0, 20.0],
                                     egui::TextEdit::singleline(&mut *password_length),
                                 );
                                 if response.lost_focus()
@@ -811,6 +813,7 @@ impl Gui {
 
                 ui.data_mut(|d| d.insert_temp(state_id, show_full));
 
+                ui.add_space(6.0);
                 if ui.button("Open").clicked() {
                     tokio::spawn(Gui::file_open_named(state.clone(), prev_vault.clone()));
                 };
@@ -840,6 +843,7 @@ impl Gui {
 
         ui.horizontal(|ui| {
             ui.heading(name);
+            ui.add_space(6.0);
             let response = ui.button("Search");
             let popup_id = ui.make_persistent_id("SearchPopupId");
 
@@ -926,6 +930,7 @@ impl Gui {
                     ui.strong("Username");
                 });
                 header.col(|ui| {
+                    ui.add_space(6.0);
                     ui.strong("Password");
                 });
             })
@@ -938,6 +943,7 @@ impl Gui {
                             ui.label(format!("{}", name.clone()));
                         });
                         row.col(|ui| {
+                            ui.add_space(6.0);
                             if ui.button("Get").clicked() {
                                 tokio::spawn(Gui::get(state.clone(), name.clone()));
                             }
