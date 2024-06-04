@@ -90,11 +90,13 @@ impl eframe::App for Gui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.style_mut(|style: &mut Style| {
             //style.visuals.button_frame = false;
-            style.visuals.widgets.noninteractive.weak_bg_fill = Color32::from_gray(30);
-            style.visuals.widgets.active.weak_bg_fill = Color32::from_gray(38);
-            style.visuals.widgets.inactive.weak_bg_fill = Color32::from_gray(38);
-            style.visuals.widgets.hovered.weak_bg_fill = Color32::from_gray(47);
-            style.visuals.widgets.open.weak_bg_fill = Color32::from_gray(38);
+            if self.darkmode {
+                style.visuals.widgets.noninteractive.weak_bg_fill = Color32::from_gray(30);
+                style.visuals.widgets.active.weak_bg_fill = Color32::from_gray(42);
+                style.visuals.widgets.inactive.weak_bg_fill = Color32::from_gray(42);
+                style.visuals.widgets.hovered.weak_bg_fill = Color32::from_gray(47);
+                style.visuals.widgets.open.weak_bg_fill = Color32::from_gray(42);
+            }
 
             style.visuals.widgets.noninteractive.rounding = Rounding::same(1.5);
             style.visuals.widgets.active.rounding = Rounding::same(1.5);
@@ -106,11 +108,16 @@ impl eframe::App for Gui {
             style.spacing.menu_width = 90.0;
         });
 
-        //let frame = egui::Frame::default().inner_margin(egui::Margin::ZERO);
-        let frame = egui::Frame::central_panel(&egui::Style::default())
+        let mut frame = egui::Frame::central_panel(&egui::Style::default())
             .inner_margin(egui::Margin::same(1.0));
 
+        if !self.darkmode {
+            frame = frame.fill(Color32::from_gray(240));
+        }
+
         egui::CentralPanel::default().frame(frame).show(ctx, |ui| {
+            self.update_color_scheme(ui, ctx);
+
             if ctx.input(|i| i.viewport().close_requested()) {
                 if !self.allowed_to_close {
                     if Gui::was_vault_modified(self.state.clone()) {
@@ -151,8 +158,6 @@ impl eframe::App for Gui {
             if self.update_scale {
                 ctx.set_pixels_per_point(self.scale);
             }
-
-            self.update_color_scheme(ui, ctx);
 
             // Handle clipboard
             ui.output_mut(|o| {
