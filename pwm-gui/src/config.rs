@@ -7,7 +7,8 @@ fn default_config() -> JsonValue {
     json::object! {
         dark: true,
         scale: 2.0,
-        prev_vaults: []
+        prev_vaults: [],
+        prev_vaults_max: 8,
     }
 }
 
@@ -56,7 +57,6 @@ pub fn get_config() -> JsonValue {
             return default_config();
         }
     };
-
 
     let file = match String::from_utf8(file) {
         Ok(file) => file,

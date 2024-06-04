@@ -26,6 +26,9 @@ pub struct Gui {
 
     darkmode: bool,
 
+    // Copies the original value and is modified by the text box in options
+    prev_vaults_max_length_text: String,
+
     // Exit confirmation if a vault was modified
     show_exit_confirmation_dialog: bool,
     allowed_to_close: bool,
@@ -55,11 +58,15 @@ impl Default for Gui {
         }
         info!("prev_vaults: {:?}", prev_vaults);
 
+        let max_len = config["prev_vaults_max"].as_usize().unwrap_or(8);
+
         Self {
             scale: config["scale"].as_f32().unwrap_or(2.0),
             update_scale: true,
 
             darkmode: config["dark"].as_bool().unwrap_or(true),
+
+            prev_vaults_max_length_text: format!("{max_len}"),
 
             show_exit_confirmation_dialog: false,
             allowed_to_close: false,
@@ -67,7 +74,7 @@ impl Default for Gui {
             show_new_vault_confirmation_dialog: false,
             create_new_vault_confirmed: false,
 
-            state: Arc::new(State::new(prev_vaults)),
+            state: Arc::new(State::new(prev_vaults, max_len)),
         }
     }
 }
@@ -418,7 +425,7 @@ impl Gui {
                 let length: usize = match password_length.parse() {
                     Ok(length) => length,
                     Err(error) => {
-                        GuiError::display_error_or_print(state.clone(), error.to_string().into());
+                        GuiError::display_error_or_print(state.clone(), error.into());
                         return;
                     }
                 };
@@ -628,6 +635,27 @@ impl Gui {
                 } else {
                     self.update_scale = false;
                 };
+
+                let response = ui.add_sized(
+                    [100.0, 20.0],
+                    egui::TextEdit::singleline(&mut self.prev_vaults_max_length_text),
+                );
+                if response.changed() {
+                    match self.prev_vaults_max_length_text.parse() {
+                        Ok(max) => {
+                            tokio::spawn(State::update_prev_vaults_max_length(
+                                self.state.clone(),
+                                max,
+                            ));
+                        }
+                        Err(error) => {
+                            GuiError::display_error_or_print(
+                                self.state.clone(),
+                                error.into(),
+                            );
+                        }
+                    };
+                }
             });
 
             ui.menu_button("Encryption", |ui| {
@@ -735,7 +763,11 @@ impl Gui {
         Ok(())
     }
 
-    fn display_recent_vaults_loop(state: Arc<State>, ui: &mut egui::Ui, path_len: usize) -> Result<(), GuiError> {
+    fn display_recent_vaults_loop(
+        state: Arc<State>,
+        ui: &mut egui::Ui,
+        path_len: usize,
+    ) -> Result<(), GuiError> {
         let prev_vaults = state.prev_vaults.lock()?;
         for prev_vault in prev_vaults.iter() {
             ui.horizontal(|ui| {
@@ -957,18 +989,25 @@ impl Drop for Gui {
                 let prev_vaults_vec: Vec<String> =
                     prev_vaults.iter().map(|value| value.clone()).collect();
 
-                const MAX_LENGTH: usize = 8;
+                let max_length = match self.state.prev_vaults_max_length.lock() {
+                    Ok(max_length) => *max_length,
+                    Err(error) => {
+                        warn!("State::prev_vaults_max_length was unable to be unlocked defaulting to 8: {}", error.to_string());
+                        8
+                    }
+                };
 
-                let slice_len = if prev_vaults_vec.len() < MAX_LENGTH {
+                let slice_len = if prev_vaults_vec.len() < max_length {
                     prev_vaults_vec.len()
                 } else {
-                    MAX_LENGTH
+                    max_length
                 };
 
                 let config = json::object! {
                     dark: self.darkmode,
                     scale: self.scale,
                     prev_vaults: prev_vaults_vec[0..slice_len],
+                    prev_vaults_max: slice_len,
                 };
 
                 write_config(config);

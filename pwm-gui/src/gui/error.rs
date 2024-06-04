@@ -1,7 +1,7 @@
-use std::sync::{
+use std::{num::ParseIntError, sync::{
     mpsc::{RecvError, SendError},
     Arc, PoisonError,
-};
+}};
 
 use crate::state::State;
 use log::{debug, error};
@@ -19,6 +19,7 @@ pub enum GuiError {
     StringError(String),
     PasswordNotSame,
     Utf8Fail(String),
+    ParseIntError(String),
 }
 
 impl GuiError {
@@ -28,6 +29,9 @@ impl GuiError {
                 debug!("{}", error);
             }
             GuiError::RecvFail(error) => {
+                debug!("{}", error);
+            }
+            GuiError::ParseIntError(error) => {
                 debug!("{}", error);
             }
             _ => {
@@ -56,6 +60,7 @@ impl std::fmt::Display for GuiError {
             Self::StringError(msg) => f.write_fmt(std::format_args!("{}", msg)),
             Self::PasswordNotSame => f.write_str("Passwords do not match"),
             Self::Utf8Fail(msg) => f.write_fmt(std::format_args!("{}", msg)),
+            Self::ParseIntError(msg) => f.write_fmt(std::format_args!("{}", msg)),
         };
     }
 }
@@ -95,5 +100,11 @@ impl From<RecvError> for GuiError {
 impl<T> From<SendError<T>> for GuiError {
     fn from(value: SendError<T>) -> Self {
         Self::SendFail(value.to_string())
+    }
+}
+
+impl From<ParseIntError> for GuiError {
+    fn from(value: ParseIntError) -> Self {
+        Self::ParseIntError(value.to_string())
     }
 }

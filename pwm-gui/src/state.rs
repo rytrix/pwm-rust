@@ -21,10 +21,11 @@ pub struct State {
     pub search_string: Mutex<String>,
     pub password_length: Mutex<String>,
     pub prev_vaults: Mutex<VecDeque<String>>,
+    pub prev_vaults_max_length: Mutex<usize>,
 }
 
 impl State {
-    pub fn new(prev_vaults: VecDeque<String>) -> Self {
+    pub fn new(prev_vaults: VecDeque<String>, prev_vaults_max_length: usize) -> Self {
         Self {
             messages: Mutex::new(Vec::new()),
             prompts: Mutex::new(Vec::new()),
@@ -33,6 +34,7 @@ impl State {
             search_string: Mutex::new(String::new()),
             password_length: Mutex::new(String::from("32")),
             prev_vaults: Mutex::new(prev_vaults),
+            prev_vaults_max_length: Mutex::new(prev_vaults_max_length),
         }
     }
 
@@ -73,6 +75,28 @@ impl State {
         Ok(())
     }
 
+    fn update_prev_vaults_max_length_internal(
+        state: Arc<State>,
+        new_max: usize,
+    ) -> Result<(), GuiError> {
+        let mut prev_vaults = state.prev_vaults.lock()?;
+
+        let max_len = &mut *state.prev_vaults_max_length.lock().unwrap();
+        *max_len = new_max;
+        if prev_vaults.len() > new_max {
+            prev_vaults.resize(new_max, String::new());
+        }
+
+        Ok(())
+    }
+
+    pub async fn update_prev_vaults_max_length(state: Arc<State>, new_max: usize) {
+        match State::update_prev_vaults_max_length_internal(state.clone(), new_max) {
+            Ok(()) => (),
+            Err(error) => GuiError::display_error_or_print(state, error),
+        }
+    }
+
     fn append_vault_path_to_prev_vaults(state: Arc<State>, file: String) -> Result<(), GuiError> {
         let mut prev_vaults = state.prev_vaults.lock()?;
 
@@ -88,7 +112,12 @@ impl State {
         }
 
         prev_vaults.push_front(file);
-        
+
+        let max_len = *state.prev_vaults_max_length.lock()?;
+        if prev_vaults.len() > max_len {
+            prev_vaults.resize(max_len, String::new());
+        }
+
         Ok(())
     }
 
