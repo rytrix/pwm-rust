@@ -4,7 +4,7 @@ use std::{num::ParseIntError, sync::{
 }};
 
 use crate::state::State;
-use log::{debug, error};
+use log::{debug, error, warn};
 use pwm_db::db_base::error::DatabaseError;
 
 #[derive(Debug)]
@@ -32,7 +32,7 @@ impl GuiError {
                 debug!("{}", error);
             }
             GuiError::ParseIntError(error) => {
-                debug!("{}", error);
+                warn!("{}", error);
             }
             _ => {
                 if let Err(display_error) = State::add_error(state, error.to_string()) {
