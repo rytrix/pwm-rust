@@ -10,7 +10,7 @@ use std::collections::VecDeque;
 use std::path::Component;
 use std::{path::PathBuf, sync::Arc};
 
-use eframe::egui::{self, Key, Label, Layout, Modifiers, Sense, Vec2};
+use eframe::egui::{self, Color32, Key, Label, Layout, Modifiers, Rounding, Sense, Style, Vec2};
 use egui_extras::{Column, TableBuilder};
 use log::{debug, error, info, warn};
 
@@ -81,6 +81,21 @@ impl Default for Gui {
 
 impl eframe::App for Gui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        ctx.style_mut(|style: &mut Style| {
+            //style.visuals.button_frame = false;
+            style.visuals.widgets.noninteractive.weak_bg_fill = Color32::from_gray(30);
+            style.visuals.widgets.active.weak_bg_fill = Color32::from_gray(42);
+            style.visuals.widgets.inactive.weak_bg_fill = Color32::from_gray(42);
+            style.visuals.widgets.hovered.weak_bg_fill = Color32::from_gray(47);
+            style.visuals.widgets.open.weak_bg_fill = Color32::from_gray(42);
+
+            style.visuals.widgets.noninteractive.rounding = Rounding::same(1.5);
+            style.visuals.widgets.active.rounding = Rounding::same(1.5);
+            style.visuals.widgets.inactive.rounding = Rounding::same(1.5);
+            style.visuals.widgets.hovered.rounding = Rounding::same(1.5);
+            style.visuals.widgets.open.rounding = Rounding::same(1.5);
+        });
+
         egui::CentralPanel::default().show(ctx, |ui| {
             if ctx.input(|i| i.viewport().close_requested()) {
                 if !self.allowed_to_close {
