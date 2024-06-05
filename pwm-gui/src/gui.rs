@@ -956,7 +956,7 @@ impl Gui {
     fn display_recent_vaults(state: Arc<State>, ui: &mut egui::Ui) -> Result<(), GuiError> {
         ui.horizontal(|ui| {
             ui.add_space(3.0);
-            ui.heading("Recent files");
+            ui.heading("Recent Vaults");
         });
         ui.separator();
         Gui::display_recent_vaults_loop(state, ui, 3, true)?;
