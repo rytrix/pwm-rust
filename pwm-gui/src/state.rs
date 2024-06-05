@@ -103,7 +103,7 @@ impl State {
         }
     }
 
-    fn append_vault_path_to_prev_vaults(state: Arc<State>, file: String) -> Result<(), GuiError> {
+    pub fn append_vault_path_to_prev_vaults(state: Arc<State>, file: String) -> Result<(), GuiError> {
         let mut prev_vaults = state.prev_vaults.lock()?;
 
         let mut remove_list = VecDeque::new();
@@ -150,6 +150,8 @@ impl State {
         vault.name_buffer = get_file_name(Path::new(path).to_path_buf());
 
         vault.serialize_to_file(&path, password)?;
+
+        State::append_vault_path_to_prev_vaults(state.clone(), path.to_string())?;
         Ok(())
     }
 
