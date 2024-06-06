@@ -1100,7 +1100,7 @@ impl Gui {
                                     tokio::spawn(Gui::rename(self.state.clone(), name.clone()));
                                     ui.close_menu();
                                 }
-                                if ui.button("Replace").clicked() {
+                                if ui.button("Edit").clicked() {
                                     tokio::spawn(Gui::replace(self.state.clone(), name.clone()));
                                     ui.close_menu();
                                 }
