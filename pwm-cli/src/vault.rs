@@ -16,7 +16,7 @@ where
     reader: I,
     writer: O,
     test_mode: bool,
-    clipboard: arboard::Clipboard,
+    clipboard: Option<arboard::Clipboard>,
 }
 
 impl<I, O> Vault<I, O>
@@ -47,9 +47,13 @@ where
 
         let db = DatabaseEncrypted::new(password.as_bytes())?;
 
-        let clipboard = match arboard::Clipboard::new() {
-            Ok(clipboard) => clipboard,
-            Err(error) => return Err(DatabaseError::ClipboardError(error.to_string())),
+        let clipboard = if test_mode {
+            None
+        } else {
+            match arboard::Clipboard::new() {
+                Ok(clipboard) => Some(clipboard),
+                Err(error) => return Err(DatabaseError::ClipboardError(error.to_string())),
+            }
         };
 
         Ok(Vault {
@@ -101,9 +105,13 @@ where
 
         let db = DatabaseEncrypted::new_deserialize_encrypted(&contents, password.as_bytes())?;
 
-        let clipboard = match arboard::Clipboard::new() {
-            Ok(clipboard) => clipboard,
-            Err(error) => return Err(DatabaseError::ClipboardError(error.to_string())),
+        let clipboard = if test_mode {
+            None
+        } else {
+            match arboard::Clipboard::new() {
+                Ok(clipboard) => Some(clipboard),
+                Err(error) => return Err(DatabaseError::ClipboardError(error.to_string())),
+            }
         };
 
         Ok(Vault {
@@ -253,18 +261,25 @@ where
                                 if self.test_mode {
                                     writeln!(self.writer, "{}", pass.as_str())?;
                                 } else {
-                                    match self.clipboard.set_text(pass.as_str()) {
-                                        Ok(()) => {
-                                            writeln!(self.writer, "copied to clipboard")?;
-                                        }
-                                        Err(error) => {
-                                            writeln!(
-                                                self.writer,
-                                                "failed to copy to clipboard: {}",
-                                                error.to_string()
-                                            )?;
-                                        }
-                                    };
+                                    if let Some(clipboard) = &mut self.clipboard {
+                                        match clipboard.set_text(pass.as_str()) {
+                                            Ok(()) => {
+                                                writeln!(self.writer, "copied to clipboard")?;
+                                            }
+                                            Err(error) => {
+                                                writeln!(
+                                                    self.writer,
+                                                    "failed to copy to clipboard: {}",
+                                                    error.to_string()
+                                                )?;
+                                            }
+                                        };
+                                    } else {
+                                        return Err(std::io::Error::new(
+                                            std::io::ErrorKind::Other,
+                                            "Expected clipboard to be Some() when not in test mode",
+                                        ));
+                                    }
                                 }
                             }
                             Err(error) => {
@@ -809,10 +824,7 @@ mod tests {
 
         assert_eq!(imported, exported);
 
-        reset_cursors(
-            &mut vault,
-            "q",
-        );
+        reset_cursors(&mut vault, "q");
         run_command(&mut vault).unwrap();
 
         let string = output_to_string(&mut vault);
