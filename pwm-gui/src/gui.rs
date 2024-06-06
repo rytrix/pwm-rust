@@ -10,7 +10,7 @@ use std::collections::VecDeque;
 use std::path::Component;
 use std::{path::PathBuf, sync::Arc};
 
-use eframe::egui::{self, Color32, Key, Label, Layout, Modifiers, Rounding, Sense, Style, Vec2};
+use eframe::egui::{self, Color32, Key, Label, Layout, Modifiers, Rounding, Sense, Stroke, Style, Vec2};
 use egui_extras::{Column, TableBuilder};
 use log::{debug, error, info, warn};
 
@@ -98,6 +98,10 @@ impl eframe::App for Gui {
                 style.visuals.widgets.inactive.weak_bg_fill = Color32::from_gray(42);
                 style.visuals.widgets.hovered.weak_bg_fill = Color32::from_gray(47);
                 style.visuals.widgets.open.weak_bg_fill = Color32::from_gray(42);
+
+                style.visuals.widgets.active.bg_stroke = Stroke::NONE;
+                style.visuals.widgets.hovered.bg_stroke = Stroke::NONE;
+                style.visuals.widgets.open.bg_stroke = Stroke::NONE;
             }
 
             style.visuals.widgets.noninteractive.rounding = Rounding::same(1.5);
