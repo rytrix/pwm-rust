@@ -218,12 +218,12 @@ where
                         writeln!(self.writer, "Expected a key")?;
                     }
                 }
-                "replace" => {
+                "edit" => {
                     if let Some(name) = itr.next() {
-                        match self.replace(name, itr.next()) {
+                        match self.edit(name, itr.next()) {
                             Ok(()) => (),
                             Err(error) => {
-                                writeln!(self.writer, "Failed to insert: {}", error.to_string())?;
+                                writeln!(self.writer, "Failed to edit: {}", error.to_string())?;
                             }
                         }
                     } else {
@@ -436,7 +436,7 @@ where
         Ok(())
     }
 
-    fn replace(&mut self, name: &str, new_data: Option<&str>) -> Result<(), DatabaseError> {
+    fn edit(&mut self, name: &str, new_data: Option<&str>) -> Result<(), DatabaseError> {
         let password = match self.request_password("Enter the master password") {
             Ok(password) => password,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
@@ -562,7 +562,7 @@ where
     help                  - this menu 
     insert  <key> <data?> - insert an element 
     remove  <key>         - remove an element
-    replace <key> <data?> - remove an element
+    edit    <key> <data?> - remove an element
     rename  <name> <name> - rename an entry
     get     <key>         - retrieve an element
     save    <file>        - save to a file
