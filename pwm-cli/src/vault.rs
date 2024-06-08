@@ -690,11 +690,11 @@ mod tests {
     }
 
     #[test]
-    fn test_replace() {
+    fn test_edit() {
         let mut vault = new_vault("12\n12\n");
         reset_cursors(
             &mut vault,
-            "insert test 123\n12\nreplace test 1234\n12\nget test\n12\n",
+            "insert test 123\n12\nedit test 1234\n12\nget test\n12\n",
         );
 
         run_command(&mut vault).unwrap();
