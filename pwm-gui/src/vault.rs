@@ -98,6 +98,9 @@ impl Vault {
         new_name: &str,
         password: &[u8],
     ) -> Result<(), DatabaseError> {
+        if name == new_name {
+            return Ok(())
+        }
         self.changed = true;
         self.db.rename(name, new_name, password)
     }

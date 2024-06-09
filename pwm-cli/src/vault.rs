@@ -462,6 +462,9 @@ where
     }
 
     fn rename(&mut self, name: &str, new_name: &str) -> Result<(), DatabaseError> {
+        if name == new_name {
+            return Ok(())
+        }
         let password = match self.request_password("Enter the master password") {
             Ok(password) => password,
             Err(error) => return Err(DatabaseError::InputError(error.to_string())),
