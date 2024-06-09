@@ -1,3 +1,4 @@
+use eframe::egui;
 use pwm_lib::zeroize::Zeroizing;
 
 use crate::gui::message::Message;
@@ -22,10 +23,11 @@ pub struct State {
     pub password_length: Mutex<String>,
     pub prev_vaults: Mutex<VecDeque<String>>,
     pub prev_vaults_max_length: Mutex<usize>,
+    pub egui_ctx: egui::Context,
 }
 
 impl State {
-    pub fn new(prev_vaults: VecDeque<String>, prev_vaults_max_length: usize, password_length: usize) -> Self {
+    pub fn new(ctx: egui::Context, prev_vaults: VecDeque<String>, prev_vaults_max_length: usize, password_length: usize) -> Self {
         Self {
             messages: Mutex::new(Vec::new()),
             prompts: Mutex::new(Vec::new()),
@@ -35,6 +37,7 @@ impl State {
             password_length: Mutex::new(format!("{}", password_length)),
             prev_vaults: Mutex::new(prev_vaults),
             prev_vaults_max_length: Mutex::new(prev_vaults_max_length),
+            egui_ctx: ctx
         }
     }
 
@@ -51,6 +54,7 @@ impl State {
             Err(error) => return Err(GuiError::DatabaseError(error.to_string())),
         };
 
+        state.egui_ctx.request_repaint();
         Ok(())
     }
 
@@ -133,7 +137,9 @@ impl State {
             None => return Err(GuiError::NoFile),
         };
 
-        State::open_vault_from_file(state, file).await
+        State::open_vault_from_file(state.clone(), file).await?;
+        state.egui_ctx.request_repaint();
+        Ok(())
     }
 
     pub async fn save_vault_to_file(
@@ -152,6 +158,7 @@ impl State {
         vault.serialize_to_file(&path, password)?;
 
         State::append_vault_path_to_prev_vaults(state.clone(), path.to_string())?;
+        state.egui_ctx.request_repaint();
         Ok(())
     }
 
@@ -171,6 +178,7 @@ impl State {
         };
 
         vault.insert(&name, data.as_bytes(), password.as_bytes())?;
+        state.egui_ctx.request_repaint();
         Ok(())
     }
 
@@ -190,6 +198,7 @@ impl State {
         };
 
         vault.insert_from_csv(file.display().to_string().as_str(), password.as_bytes())?;
+        state.egui_ctx.request_repaint();
         Ok(())
     }
 
@@ -209,6 +218,7 @@ impl State {
         };
 
         vault.export_to_csv(file.display().to_string().as_str(), password.as_bytes())?;
+        state.egui_ctx.request_repaint();
         Ok(())
     }
 
@@ -226,6 +236,7 @@ impl State {
         };
 
         vault.rename(name.as_str(), new_name.as_str(), password.as_bytes())?;
+        state.egui_ctx.request_repaint();
         Ok(())
     }
 
@@ -243,6 +254,7 @@ impl State {
         };
 
         vault.replace(name.as_str(), new_data.as_bytes(), password.as_bytes())?;
+        state.egui_ctx.request_repaint();
         Ok(())
     }
 
@@ -257,6 +269,7 @@ impl State {
         };
 
         vault.remove(&name, password.as_bytes())?;
+        state.egui_ctx.request_repaint();
         Ok(())
     }
 
@@ -303,6 +316,7 @@ impl State {
             false,
         ));
 
+        state.egui_ctx.request_repaint();
         Ok(receiver)
     }
 

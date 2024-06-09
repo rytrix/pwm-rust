@@ -10,7 +10,10 @@ use std::collections::VecDeque;
 use std::path::Component;
 use std::{path::PathBuf, sync::Arc};
 
-use eframe::egui::{self, Color32, Key, Label, Layout, Modifiers, Rounding, Sense, Stroke, Style, Vec2};
+use eframe::egui::{
+    self, Color32, Key, Label, Layout, Modifiers, Rounding, Sense, Stroke, Style, Vec2,
+};
+use eframe::CreationContext;
 use egui_extras::{Column, TableBuilder};
 use log::{debug, error, info, warn};
 
@@ -44,8 +47,8 @@ pub struct Gui {
     state: Arc<State>,
 }
 
-impl Default for Gui {
-    fn default() -> Self {
+impl Gui {
+    pub fn new(cc: &CreationContext) -> Self {
         let config = get_config();
         let prev_vaults_json = &config["prev_vaults"];
         let mut prev_vaults = VecDeque::new();
@@ -83,7 +86,7 @@ impl Default for Gui {
             show_close_vault_confirmation_dialog: false,
             close_vault_confirmed: false,
 
-            state: Arc::new(State::new(prev_vaults, max_len, pass_len)),
+            state: Arc::new(State::new(cc.egui_ctx.clone(), prev_vaults, max_len, pass_len)),
         }
     }
 }
@@ -969,7 +972,17 @@ impl Gui {
     }
 
     fn display_vault(&mut self, ui: &mut egui::Ui) -> Result<(), GuiError> {
-        let mut vault = self.state.vault.lock()?;
+        // Non-blocking
+        let mut vault = match self.state.vault.try_lock() {
+            Ok(vault) => vault,
+            Err(_error) => {
+                ui.heading("Updating Vault");
+                return Ok(());
+            }
+        };
+
+        //let mut vault = self.state.vault.lock()?;
+
         let vault = match &mut *vault {
             Some(vault) => vault,
             None => return Gui::display_recent_vaults(self.state.clone(), ui),
