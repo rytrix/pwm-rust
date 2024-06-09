@@ -9,34 +9,34 @@ use std::collections::VecDeque;
 use std::path::Path;
 use std::sync::mpsc::{channel, Receiver};
 use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::RwLock;
 
 use crate::gui::prompt::Prompt;
 
 pub struct State {
-    pub messages: Mutex<Vec<Message>>,
+    pub messages: RwLock<Vec<Message>>,
     // Prompt, Password, Sender
-    pub prompts: Mutex<Vec<Prompt>>,
-    pub vault: Mutex<Option<Vault>>,
-    pub clipboard_string: Mutex<Option<Zeroizing<String>>>,
-    pub search_string: Mutex<String>,
-    pub password_length: Mutex<String>,
-    pub prev_vaults: Mutex<VecDeque<String>>,
-    pub prev_vaults_max_length: Mutex<usize>,
+    pub prompts: RwLock<Vec<Prompt>>,
+    pub vault: RwLock<Option<Vault>>,
+    pub clipboard_string: RwLock<Option<Zeroizing<String>>>,
+    pub search_string: RwLock<String>,
+    pub password_length: RwLock<String>,
+    pub prev_vaults: RwLock<VecDeque<String>>,
+    pub prev_vaults_max_length: RwLock<usize>,
     pub egui_ctx: egui::Context,
 }
 
 impl State {
     pub fn new(ctx: egui::Context, prev_vaults: VecDeque<String>, prev_vaults_max_length: usize, password_length: usize) -> Self {
         Self {
-            messages: Mutex::new(Vec::new()),
-            prompts: Mutex::new(Vec::new()),
-            vault: Mutex::new(None),
-            clipboard_string: Mutex::new(None),
-            search_string: Mutex::new(String::new()),
-            password_length: Mutex::new(format!("{}", password_length)),
-            prev_vaults: Mutex::new(prev_vaults),
-            prev_vaults_max_length: Mutex::new(prev_vaults_max_length),
+            messages: RwLock::new(Vec::new()),
+            prompts: RwLock::new(Vec::new()),
+            vault: RwLock::new(None),
+            clipboard_string: RwLock::new(None),
+            search_string: RwLock::new(String::new()),
+            password_length: RwLock::new(format!("{}", password_length)),
+            prev_vaults: RwLock::new(prev_vaults),
+            prev_vaults_max_length: RwLock::new(prev_vaults_max_length),
             egui_ctx: ctx
         }
     }
@@ -48,7 +48,7 @@ impl State {
             String::from("Confirm new vault's master password"),
         )?;
 
-        let mut vault = state.vault.lock()?;
+        let mut vault = state.vault.write()?;
         *vault = match Vault::new("New Vault", password.as_bytes()) {
             Ok(vault) => Some(vault),
             Err(error) => return Err(GuiError::DatabaseError(error.to_string())),
@@ -59,8 +59,9 @@ impl State {
     }
 
     pub async fn close_vault(state: Arc<State>) -> Result<(), GuiError> {
-        let mut vault = state.vault.lock()?;
+        let mut vault = state.vault.write()?;
         *vault = None;
+        state.egui_ctx.request_repaint();
         Ok(())
     }
 
@@ -74,14 +75,14 @@ impl State {
         )?;
         let password = receiver.recv()?;
 
-        let mut vault = state.vault.lock()?;
+        let mut vault = state.vault.write()?;
         *vault = match Vault::new_from_file(file.as_str(), password.as_bytes()) {
             Ok(vault) => Some(vault),
             Err(error) => return Err(GuiError::DatabaseError(error.to_string())),
         };
 
         State::append_vault_path_to_prev_vaults(state.clone(), file)?;
-
+        state.egui_ctx.request_repaint();
         Ok(())
     }
 
@@ -89,9 +90,9 @@ impl State {
         state: Arc<State>,
         new_max: usize,
     ) -> Result<(), GuiError> {
-        let mut prev_vaults = state.prev_vaults.lock()?;
+        let mut prev_vaults = state.prev_vaults.write()?;
 
-        let max_len = &mut *state.prev_vaults_max_length.lock().unwrap();
+        let max_len = &mut *state.prev_vaults_max_length.write()?;
         *max_len = new_max;
         if prev_vaults.len() > new_max {
             prev_vaults.resize(new_max, String::new());
@@ -108,7 +109,7 @@ impl State {
     }
 
     pub fn append_vault_path_to_prev_vaults(state: Arc<State>, file: String) -> Result<(), GuiError> {
-        let mut prev_vaults = state.prev_vaults.lock()?;
+        let mut prev_vaults = state.prev_vaults.write()?;
 
         let mut remove_list = VecDeque::new();
         for (index, val) in prev_vaults.iter().enumerate() {
@@ -123,11 +124,12 @@ impl State {
 
         prev_vaults.push_front(file);
 
-        let max_len = *state.prev_vaults_max_length.lock()?;
+        let max_len = *state.prev_vaults_max_length.write()?;
         if prev_vaults.len() > max_len {
             prev_vaults.resize(max_len, String::new());
         }
 
+        state.egui_ctx.request_repaint();
         Ok(())
     }
 
@@ -147,7 +149,7 @@ impl State {
         path: &str,
         password: &[u8],
     ) -> Result<(), GuiError> {
-        let mut vault = state.vault.lock()?;
+        let mut vault = state.vault.write()?;
         let vault = match &mut *vault {
             Some(vault) => vault,
             None => return Err(GuiError::NoVault),
@@ -171,7 +173,7 @@ impl State {
 
         let data = receiver.recv()?;
 
-        let mut vault = state.vault.lock()?;
+        let mut vault = state.vault.write()?;
         let vault = match &mut *vault {
             Some(vault) => vault,
             None => return Err(GuiError::NoVault),
@@ -191,7 +193,7 @@ impl State {
             None => return Err(GuiError::NoFile),
         };
 
-        let mut vault = state.vault.lock()?;
+        let mut vault = state.vault.write()?;
         let vault = match &mut *vault {
             Some(vault) => vault,
             None => return Err(GuiError::NoVault),
@@ -211,7 +213,7 @@ impl State {
             None => return Err(GuiError::NoFile),
         };
 
-        let mut vault = state.vault.lock()?;
+        let mut vault = state.vault.write()?;
         let vault = match &mut *vault {
             Some(vault) => vault,
             None => return Err(GuiError::NoVault),
@@ -229,7 +231,7 @@ impl State {
         let receiver = State::add_prompt(state.clone(), format!("Enter new name"))?;
         let new_name = receiver.recv()?;
 
-        let mut vault = state.vault.lock()?;
+        let mut vault = state.vault.write()?;
         let vault = match &mut *vault {
             Some(vault) => vault,
             None => return Err(GuiError::NoVault),
@@ -247,7 +249,7 @@ impl State {
         let receiver = State::add_password_prompt(state.clone(), format!("Enter new password"))?;
         let new_data = receiver.recv()?;
 
-        let mut vault = state.vault.lock()?;
+        let mut vault = state.vault.write()?;
         let vault = match &mut *vault {
             Some(vault) => vault,
             None => return Err(GuiError::NoVault),
@@ -262,7 +264,7 @@ impl State {
         let receiver = Self::add_password_prompt(state.clone(), format!("Enter master password"))?;
         let password = receiver.recv()?;
 
-        let mut vault = state.vault.lock()?;
+        let mut vault = state.vault.write()?;
         let vault = match &mut *vault {
             Some(vault) => vault,
             None => return Err(GuiError::NoVault),
@@ -277,7 +279,7 @@ impl State {
         let receiver = Self::add_password_prompt(state.clone(), format!("Enter master password"))?;
         let password = receiver.recv()?;
 
-        let vault = state.vault.lock()?;
+        let vault = state.vault.read()?;
         let vault = match &*vault {
             Some(vault) => vault,
             None => return Err(GuiError::NoVault),
@@ -296,7 +298,7 @@ impl State {
             }
         };
 
-        let mut string = state.clipboard_string.lock()?;
+        let mut string = state.clipboard_string.write()?;
         *string = Some(Zeroizing::new(result.to_string()));
 
         Ok(())
@@ -308,7 +310,7 @@ impl State {
     ) -> Result<Receiver<Zeroizing<String>>, GuiError> {
         let (sender, receiver) = channel();
 
-        let mut vec = state.prompts.lock()?;
+        let mut vec = state.prompts.write()?;
         vec.push(Prompt::new(
             prompt,
             Zeroizing::new(String::new()),
@@ -326,7 +328,7 @@ impl State {
     ) -> Result<Receiver<Zeroizing<String>>, GuiError> {
         let (sender, receiver) = channel();
 
-        let mut vec = state.prompts.lock()?;
+        let mut vec = state.prompts.write()?;
         vec.push(Prompt::new(
             prompt,
             Zeroizing::new(String::new()),
@@ -334,6 +336,7 @@ impl State {
             true,
         ));
 
+        state.egui_ctx.request_repaint();
         Ok(receiver)
     }
 
@@ -354,14 +357,14 @@ impl State {
 
     #[allow(unused)]
     pub fn add_message(state: Arc<State>, message: Message) -> Result<(), GuiError> {
-        let mut messages = state.messages.lock()?;
+        let mut messages = state.messages.write()?;
         messages.push(message);
 
         Ok(())
     }
 
     pub fn add_error(state: Arc<State>, error: String) -> Result<(), GuiError> {
-        let mut messages = state.messages.lock()?;
+        let mut messages = state.messages.write()?;
 
         let msg = Message::new_default_duration(Some(String::from("Error")), error, false);
         messages.push(msg);
@@ -370,14 +373,14 @@ impl State {
     }
 
     pub fn contains_vault(state: Arc<State>) -> Result<bool, GuiError> {
-        if let Some(_vault) = &*state.vault.lock()? {
+        if let Some(_vault) = &*state.vault.read()? {
             return Ok(true);
         }
         Ok(false)
     }
 
     pub fn get_prev_file(state: Arc<State>) -> Result<String, GuiError> {
-        if let Some(vault) = &*state.vault.lock()? {
+        if let Some(vault) = &*state.vault.read()? {
             return Ok(vault.path.clone());
         }
         Err(GuiError::NoVault)

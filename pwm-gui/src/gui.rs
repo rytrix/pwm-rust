@@ -170,7 +170,7 @@ impl eframe::App for Gui {
 
             // Handle clipboard
             ui.output_mut(|o| {
-                if let Ok(mut clipboard) = self.state.clipboard_string.lock() {
+                if let Ok(mut clipboard) = self.state.clipboard_string.write() {
                     if let Some(result) = &mut *clipboard {
                         o.copied_text.zeroize();
                         o.copied_text = result.to_string();
@@ -232,7 +232,7 @@ impl Gui {
             }
         }
 
-        match self.state.password_length.lock() {
+        match self.state.password_length.write() {
             Ok(mut pw_len) => {
                 *pw_len = defaults["password_length"]
                     .as_usize()
@@ -267,7 +267,7 @@ impl Gui {
     pub fn save_file_dialog(state: Arc<State>) -> Option<PathBuf> {
         let dialog = rfd::FileDialog::new();
 
-        let mut dialog = match state.vault.lock() {
+        let mut dialog = match state.vault.write() {
             Ok(vault) => {
                 if let Some(vault) = &*vault {
                     let name = vault.name_buffer.clone();
@@ -510,7 +510,7 @@ impl Gui {
     }
 
     async fn random_password(state: Arc<State>) {
-        let mut clipboard = match state.clipboard_string.lock() {
+        let mut clipboard = match state.clipboard_string.write() {
             Ok(clipboard) => clipboard,
             Err(error) => {
                 GuiError::display_error_or_print(state.clone(), error.into());
@@ -518,7 +518,7 @@ impl Gui {
             }
         };
 
-        match state.password_length.lock() {
+        match state.password_length.write() {
             Ok(password_length) => {
                 let length: usize = match password_length.parse() {
                     Ok(length) => length,
@@ -545,7 +545,7 @@ impl Gui {
     }
 
     async fn clear_clipboard(state: Arc<State>) {
-        let mut clipboard = match state.clipboard_string.lock() {
+        let mut clipboard = match state.clipboard_string.write() {
             Ok(clipboard) => clipboard,
             Err(error) => {
                 GuiError::display_error_or_print(state.clone(), error.into());
@@ -599,7 +599,7 @@ impl Gui {
     }
 
     fn was_vault_modified(state: Arc<State>) -> bool {
-        let vault = match state.vault.lock() {
+        let vault = match state.vault.read() {
             Ok(vault) => vault,
             Err(error) => {
                 // TODO better error handling?
@@ -806,7 +806,7 @@ impl Gui {
                     tokio::spawn(Gui::decrypt_file(self.state.clone()));
                     ui.close_menu();
                 }
-                match self.state.password_length.lock() {
+                match self.state.password_length.write() {
                     Ok(mut password_length) => {
                         ui.menu_button("Password Generation", |ui| {
                             ui.label("Password Length");
@@ -844,7 +844,7 @@ impl Gui {
     }
 
     fn display_prompts(state: Arc<State>, ui: &mut egui::Ui) -> Result<(), GuiError> {
-        let mut prompts = state.prompts.lock()?;
+        let mut prompts = state.prompts.write()?;
         let mut count = 0;
         let mut remove_list = VecDeque::<usize>::new();
 
@@ -876,7 +876,7 @@ impl Gui {
     }
 
     fn display_messages(state: Arc<State>, ui: &mut egui::Ui) -> Result<(), GuiError> {
-        let mut messages = state.messages.lock()?;
+        let mut messages = state.messages.write()?;
         let mut count = 0;
         let mut remove_list = VecDeque::<usize>::new();
 
@@ -908,7 +908,7 @@ impl Gui {
         path_len: usize,
         button_mode: bool,
     ) -> Result<(), GuiError> {
-        let prev_vaults = state.prev_vaults.lock()?;
+        let prev_vaults = state.prev_vaults.read()?;
         for prev_vault in prev_vaults.iter() {
             ui.horizontal(|ui| {
                 if button_mode {
@@ -972,8 +972,9 @@ impl Gui {
     }
 
     fn display_vault(&mut self, ui: &mut egui::Ui) -> Result<(), GuiError> {
-        // Non-blocking
-        let mut vault = match self.state.vault.try_lock() {
+        // Doesn't wait
+        // TODO Does it ALWAYS need to be mutable??
+        let mut vault = match self.state.vault.try_write() {
             Ok(vault) => vault,
             Err(_error) => {
                 ui.heading("Updating Vault");
@@ -1005,7 +1006,7 @@ impl Gui {
             }
 
             egui::popup_below_widget(ui, popup_id, &response, |ui| {
-                let mut buffer = match self.state.search_string.lock() {
+                let mut buffer = match self.state.search_string.write() {
                     Ok(buffer) => buffer,
                     Err(error) => {
                         GuiError::display_error_or_print(self.state.clone(), error.into());
@@ -1073,7 +1074,7 @@ impl Gui {
 
         ui.separator();
 
-        let list = vault.list_fuzzy_match(self.state.search_string.lock()?.as_str())?;
+        let list = vault.list_fuzzy_match(self.state.search_string.write()?.as_str())?;
         let builder = TableBuilder::new(ui)
             .striped(true)
             .resizable(true)
@@ -1167,12 +1168,12 @@ impl Gui {
 
 impl Drop for Gui {
     fn drop(&mut self) {
-        match self.state.prev_vaults.lock() {
+        match self.state.prev_vaults.read() {
             Ok(prev_vaults) => {
                 let prev_vaults_vec: Vec<String> =
                     prev_vaults.iter().map(|value| value.clone()).collect();
 
-                let max_length = match self.state.prev_vaults_max_length.lock() {
+                let max_length = match self.state.prev_vaults_max_length.read() {
                     Ok(max_length) => *max_length,
                     Err(error) => {
                         warn!("State::prev_vaults_max_length was unable to be unlocked defaulting to 8: {}", error.to_string());
@@ -1186,7 +1187,7 @@ impl Drop for Gui {
                     max_length
                 };
 
-                let password_len = match self.state.password_length.lock() {
+                let password_len = match self.state.password_length.read() {
                     Ok(password_length) => match password_length.parse() {
                         Ok(password_len) => password_len,
                         Err(_error) => {
@@ -1213,7 +1214,7 @@ impl Drop for Gui {
             Err(error) => warn!("Failed to save config: {}", error.to_string()),
         };
 
-        let mut senders = self.state.prompts.lock().unwrap();
+        let mut senders = self.state.prompts.write().unwrap();
         senders.clear();
     }
 }
