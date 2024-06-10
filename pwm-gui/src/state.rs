@@ -133,6 +133,18 @@ impl State {
         Ok(())
     }
 
+    pub fn remove_prev_vault(state: Arc<State>, file: String) -> Result<(), GuiError> {
+        let mut prev_vaults = state.prev_vaults.write()?;
+        for (index, val) in prev_vaults.iter().enumerate() {
+            if val.eq(&file) {
+                prev_vaults.remove(index);
+                return Ok(());
+            }
+        }
+
+        Ok(())
+    }
+
     pub async fn open_vault_from_file_dialog(state: Arc<State>) -> Result<(), GuiError> {
         let file = match Gui::open_file_dialog(state.clone()) {
             Some(file) => file.display().to_string(),

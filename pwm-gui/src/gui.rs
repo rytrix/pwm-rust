@@ -86,7 +86,12 @@ impl Gui {
             show_close_vault_confirmation_dialog: false,
             close_vault_confirmed: false,
 
-            state: Arc::new(State::new(cc.egui_ctx.clone(), prev_vaults, max_len, pass_len)),
+            state: Arc::new(State::new(
+                cc.egui_ctx.clone(),
+                prev_vaults,
+                max_len,
+                pass_len,
+            )),
         }
     }
 }
@@ -598,6 +603,12 @@ impl Gui {
         }
     }
 
+    async fn remove_prev_vault(state: Arc<State>, prev_vault: String) {
+        if let Err(error) = State::remove_prev_vault(state.clone(), prev_vault.clone()) {
+            GuiError::display_error_or_print(state.clone(), error);
+        }
+    }
+
     fn was_vault_modified(state: Arc<State>) -> bool {
         let vault = match state.vault.read() {
             Ok(vault) => vault,
@@ -942,6 +953,10 @@ impl Gui {
                     if ui.button("Open").clicked() {
                         tokio::spawn(Gui::file_open_named(state.clone(), prev_vault.clone()));
                     };
+
+                    if ui.button("Forget").clicked() {
+                        tokio::spawn(Gui::remove_prev_vault(state.clone(), prev_vault.clone()));
+                    };
                 } else {
                     if ui
                         .add(
@@ -1157,6 +1172,28 @@ impl Gui {
         if ctx.input(|i| i.modifiers.matches_exact(Modifiers::CTRL) && i.key_pressed(Key::D)) {
             tokio::spawn(Gui::encrypt_file(self.state.clone()));
             info!("Decrypt File");
+        }
+        if ctx.input(|i| i.modifiers.matches_exact(Modifiers::CTRL) && i.key_pressed(Key::Q)) {
+            let none = None;
+            let vault_real;
+            let vault = match self.state.vault.read() {
+                Ok(vault) => {
+                    vault_real = vault;
+                    &*vault_real
+                }
+                Err(error) => {
+                    GuiError::display_error_or_print(self.state.clone(), error.into());
+                    &none
+                }
+            };
+            if let Some(vault) = vault {
+                if vault.changed {
+                    self.show_close_vault_confirmation_dialog = true;
+                } else {
+                    tokio::spawn(Gui::close_vault(self.state.clone()));
+                }
+            }
+            info!("Close Vault");
         }
 
         Ok(())
