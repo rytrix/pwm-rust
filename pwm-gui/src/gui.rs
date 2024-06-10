@@ -972,8 +972,7 @@ impl Gui {
     }
 
     fn display_vault(&mut self, ui: &mut egui::Ui) -> Result<(), GuiError> {
-        // Doesn't wait
-        // TODO Does it ALWAYS need to be mutable??
+        // Doesn't wait and displays updating vault if it is not available
         let mut vault = match self.state.vault.try_write() {
             Ok(vault) => vault,
             Err(_error) => {
@@ -981,8 +980,6 @@ impl Gui {
                 return Ok(());
             }
         };
-
-        //let mut vault = self.state.vault.lock()?;
 
         let vault = match &mut *vault {
             Some(vault) => vault,
