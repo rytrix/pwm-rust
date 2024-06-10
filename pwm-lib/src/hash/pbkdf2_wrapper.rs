@@ -3,6 +3,10 @@ use sha2::Sha512;
 
 use crate::hash::{HashError, HashResult};
 
+// https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#pbkdf2
+// Updated April 26 of 2024
+pub static PBKDF2_DEFAULT_N: u32 = 210_000;
+
 // Updated April 25, 2024
 pub fn pbkdf2_hash_password_into(
     password: &[u8],
@@ -11,7 +15,7 @@ pub fn pbkdf2_hash_password_into(
     pbkdf2_hmac::<Sha512>(
         password,
         &result.salt,
-        super::PBKDF2_DEFAULT_N,
+        PBKDF2_DEFAULT_N,
         &mut result.hash,
     );
 

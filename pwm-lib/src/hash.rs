@@ -9,7 +9,7 @@ use zeroize::Zeroize;
 
 #[cfg(feature = "pepper")]
 mod pepper {
-    use super::PBKDF2_DEFAULT_N;
+    use super::pbkdf2_wrapper::PBKDF2_DEFAULT_N;
     use zeroize::Zeroize;
     static PEPPER: [u8; 32] = pwm_proc::random_pepper!();
 
@@ -20,10 +20,6 @@ mod pepper {
         old.zeroize();
     }
 }
-
-// https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#pbkdf2
-// Updated April 26 of 2024
-static PBKDF2_DEFAULT_N: u32 = 210_000;
 
 #[derive(Serialize, Deserialize)]
 pub struct HashResult {
