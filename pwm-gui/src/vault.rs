@@ -14,7 +14,6 @@ pub struct Vault {
     pub changed: bool,
     pub path: String,
     pub name_buffer: String,
-    pub insert_buffer: String,
 }
 
 impl Vault {
@@ -28,7 +27,6 @@ impl Vault {
             changed: true,
             path,
             name_buffer: String::from(name),
-            insert_buffer: String::new(),
         })
     }
 
@@ -54,7 +52,6 @@ impl Vault {
             changed: false,
             path,
             name_buffer: name,
-            insert_buffer: String::new(),
         })
     }
 
