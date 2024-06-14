@@ -1060,11 +1060,11 @@ impl Gui {
 
             egui::popup_below_widget(ui, popup_id, &response, |ui| {
                 ui.horizontal(|ui| {
-                        let response = ui.add_sized(
-                            [100.0, 20.0],
-                            egui::TextEdit::singleline(&mut self.vault_insert_buffer),
-                        );
-                        response.request_focus();
+                    let response = ui.add_sized(
+                        [100.0, 20.0],
+                        egui::TextEdit::singleline(&mut self.vault_insert_buffer),
+                    );
+                    response.request_focus();
 
                     if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                         if let Some(_vault) = vault.as_mut() {
