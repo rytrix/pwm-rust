@@ -2,8 +2,8 @@
 ?Can't close if file manager is open
 
 # Todo
-importing very large csv shows updating vault for a long time, maybe buffer the db? or keep track of the previous state
-cache parts? of previous state of vault for when it is updating?
+
+importing very large csv shows updating vault for a long time, maybe buffer the db?
 
 drag drop vaults
 
@@ -14,9 +14,10 @@ I don't even know if this in my scope because I don't personally need or want it
     notes?
 }
 
-option to forget recent vaults
-
-options for strength of hashes (and maybe a benchmark for how long it'll take to hash)
-options for which encryption method to use
+I think these things specifically are more user friendly to be good defaults but I will consider upping the hashing strength {
+    options for strength of hashes (and maybe a benchmark for how long it'll take to hash)
+    options for which encryption method to use
+}
 
 more options for password generation (such as allowed characters and maybe entrophy)
+maybe just give a warning if the password strength is below an acceptable threshold when creating a vault
