@@ -9,6 +9,8 @@ drag drop vaults
 
 is it possible to refactor changed into vault directly instead of in the wrapper?
 
+file new/open/open recent freezes ui if vault is locked
+
 I don't even know if this in my scope because I don't personally need or want it {
     folders/categories
     notes?
