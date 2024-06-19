@@ -966,8 +966,7 @@ impl Gui {
                 } else {
                     if ui
                         .add(
-                            Label::new(get_file_path_back_count(prev_vault.into(), path_len))
-                                .sense(Sense::click()),
+                            Button::new(get_file_path_back_count(prev_vault.into(), path_len))
                         )
                         .clicked()
                     {
