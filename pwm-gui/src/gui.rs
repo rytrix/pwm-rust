@@ -13,7 +13,6 @@ use std::{path::PathBuf, sync::Arc};
 
 use eframe::egui::{
     self, Button, Color32, Key, Label, Layout, Modifiers, Rounding, Sense, Stroke, Style, Vec2,
-    Widget,
 };
 use eframe::CreationContext;
 use egui_extras::{Column, TableBuilder};
