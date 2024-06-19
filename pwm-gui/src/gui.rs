@@ -12,7 +12,8 @@ use std::path::Component;
 use std::{path::PathBuf, sync::Arc};
 
 use eframe::egui::{
-    self, Color32, Key, Label, Layout, Modifiers, Rounding, Sense, Stroke, Style, Vec2,
+    self, Button, Color32, Key, Label, Layout, Modifiers, Rounding, Sense, Stroke, Style, Vec2,
+    Widget,
 };
 use eframe::CreationContext;
 use egui_extras::{Column, TableBuilder};
@@ -1014,15 +1015,26 @@ impl Gui {
             }
         }
 
+        let vault_locked = if let Some(_vault) = vault.as_mut() {
+            true
+        } else {
+            false
+        };
+
         let name = ui.data_mut(|d| {
             d.get_temp::<String>(vault_name_buffer_state_id)
                 .unwrap_or(String::from("Unknown Name"))
         });
 
+        if !vault_locked {
+            ui.heading("Updating Vault");
+        }
+
         ui.horizontal(|ui| {
             ui.add_space(3.0);
             ui.heading(name);
             ui.add_space(6.0);
+
             let response = ui.button("Search");
             let popup_id = ui.make_persistent_id("SearchPopupId");
 
@@ -1066,42 +1078,53 @@ impl Gui {
                     );
                     response.request_focus();
 
-                    if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                        if let Some(_vault) = vault.as_mut() {
-                            tokio::spawn(Gui::insert(
-                                self.state.clone(),
-                                self.vault_insert_buffer.clone(),
-                            ));
-                            self.vault_insert_buffer.clear();
-                            ui.memory_mut(|mem| mem.close_popup());
-                        }
+                    if ui.input(|i| i.key_pressed(egui::Key::Enter)) && vault_locked {
+                        tokio::spawn(Gui::insert(
+                            self.state.clone(),
+                            self.vault_insert_buffer.clone(),
+                        ));
+                        self.vault_insert_buffer.clear();
+                        ui.memory_mut(|mem| mem.close_popup());
                     }
-                    if ui.button("Enter").clicked() {
-                        if let Some(_vault) = vault.as_mut() {
-                            tokio::spawn(Gui::insert(
-                                self.state.clone(),
-                                self.vault_insert_buffer.clone(),
-                            ));
-                            self.vault_insert_buffer.clear();
-                        }
+                    if ui.add_enabled(vault_locked, Button::new("Enter")).clicked() && vault_locked
+                    {
+                        tokio::spawn(Gui::insert(
+                            self.state.clone(),
+                            self.vault_insert_buffer.clone(),
+                        ));
+                        self.vault_insert_buffer.clear();
                         ui.memory_mut(|mem| mem.close_popup());
                     }
                 });
             });
 
-            ui.menu_button("Csv", |ui| {
-                if ui.button("Import").clicked() {
-                    tokio::spawn(Gui::insert_from_csv(self.state.clone()));
-                    ui.close_menu();
-                }
+            if vault_locked {
+                // I repeat vault_locked checks for safety if I modify this code later
+                // I don't want unchecked out of order modificaitons to ever ever happen
+                ui.menu_button("Csv", |ui| {
+                    if ui
+                        .add_enabled(vault_locked, Button::new("Import"))
+                        .clicked()
+                        && vault_locked
+                    {
+                        tokio::spawn(Gui::insert_from_csv(self.state.clone()));
+                        ui.close_menu();
+                    }
 
-                if ui.button("Export").clicked() {
-                    tokio::spawn(Gui::export_to_csv(self.state.clone()));
-                    ui.close_menu();
-                }
-            });
+                    if ui
+                        .add_enabled(vault_locked, Button::new("Export"))
+                        .clicked()
+                        && vault_locked
+                    {
+                        tokio::spawn(Gui::export_to_csv(self.state.clone()));
+                        ui.close_menu();
+                    }
+                });
+            } else {
+                ui.add_enabled(vault_locked, Button::new("Csv"));
+            }
 
-            if ui.button("Close").clicked() {
+            if ui.add_enabled(vault_locked, Button::new("Close")).clicked() && vault_locked {
                 if let Some(vault) = vault.as_mut() {
                     if vault.changed {
                         self.show_close_vault_confirmation_dialog = true;
@@ -1114,67 +1137,92 @@ impl Gui {
 
         ui.separator();
 
-        if let Some(vault) = vault.as_mut() {
-            let list = vault.list_fuzzy_match(self.state.search_string.write()?.as_str())?;
-            let builder = TableBuilder::new(ui)
-                .striped(true)
-                .resizable(true)
-                .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                .column(Column::remainder())
-                .column(Column::auto())
-                .min_scrolled_height(0.0);
+        let vault_list_buffer_state_id = ui.id().with("prev_vault_list_buffer");
 
-            builder
-                .header(20.0, |mut header| {
-                    header.col(|ui| {
-                        ui.add_space(3.0);
-                        ui.strong("Username");
-                    });
-                    header.col(|ui| {
-                        ui.add_space(6.0);
-                        ui.strong("Password");
-                    });
-                })
-                .body(|mut body| {
-                    for row_index in 0..list.len() {
-                        let row_height = 30.0;
-                        body.row(row_height, |mut row| {
-                            let name = &list[row_index];
-                            row.col(|ui| {
-                                ui.add_space(3.0);
-                                ui.label(format!("{}", name.clone()));
-                            });
-                            row.col(|ui| {
-                                ui.add_space(6.0);
-                                if ui.button("Get").clicked() {
-                                    tokio::spawn(Gui::get(self.state.clone(), name.clone()));
-                                }
-                                ui.add_space(3.0);
+        let list = if let Some(vault) = vault.as_mut() {
+            let list = vault.list_fuzzy_match(self.state.search_string.write()?.as_str())?;
+            ui.data_mut(|d| d.insert_temp(vault_list_buffer_state_id, list.clone()));
+            list.clone()
+        } else {
+            let list = ui.data_mut(|d| {
+                d.get_temp::<Vec<String>>(vault_list_buffer_state_id)
+                    .unwrap_or(Vec::new())
+            });
+            list
+        };
+
+        let builder = TableBuilder::new(ui)
+            .striped(true)
+            .resizable(true)
+            .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+            .column(Column::remainder())
+            .column(Column::auto())
+            .min_scrolled_height(0.0);
+
+        builder
+            .header(20.0, |mut header| {
+                header.col(|ui| {
+                    ui.add_space(3.0);
+                    ui.strong("Username");
+                });
+                header.col(|ui| {
+                    ui.add_space(6.0);
+                    ui.strong("Password");
+                });
+            })
+            .body(|mut body| {
+                for row_index in 0..list.len() {
+                    let row_height = 30.0;
+                    body.row(row_height, |mut row| {
+                        let name = &list[row_index];
+                        row.col(|ui| {
+                            ui.add_space(3.0);
+                            ui.label(format!("{}", name.clone()));
+                        });
+                        row.col(|ui| {
+                            ui.add_space(6.0);
+                            if ui.add_enabled(vault_locked, Button::new("Get")).clicked()
+                                && vault_locked
+                            {
+                                tokio::spawn(Gui::get(self.state.clone(), name.clone()));
+                            }
+                            ui.add_space(3.0);
+                            if vault_locked {
                                 ui.menu_button("Modify", |ui| {
-                                    if ui.button("Rename").clicked() {
+                                    if ui
+                                        .add_enabled(vault_locked, Button::new("Rename"))
+                                        .clicked()
+                                        && vault_locked
+                                    {
                                         tokio::spawn(Gui::rename(self.state.clone(), name.clone()));
                                         ui.close_menu();
                                     }
-                                    if ui.button("Edit").clicked() {
+                                    if ui.add_enabled(vault_locked, Button::new("Edit")).clicked()
+                                        && vault_locked
+                                    {
                                         tokio::spawn(Gui::replace(
                                             self.state.clone(),
                                             name.clone(),
                                         ));
                                         ui.close_menu();
                                     }
-                                    if ui.button("Delete").clicked() {
+                                    if ui
+                                        .add_enabled(vault_locked, Button::new("Delete"))
+                                        .clicked()
+                                        && vault_locked
+                                    {
                                         tokio::spawn(Gui::remove(self.state.clone(), name.clone()));
                                         ui.close_menu();
                                     }
                                 });
-                                ui.add_space(6.0)
-                            });
+                            } else {
+                                ui.add_enabled(vault_locked, Button::new("Modify"));
+                            }
+                            ui.add_space(6.0)
                         });
-                    }
-                });
-        } else {
-            ui.heading("Updating Vault");
-        }
+                    });
+                }
+            });
 
         Ok(())
     }
