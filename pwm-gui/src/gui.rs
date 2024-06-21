@@ -548,6 +548,7 @@ impl Gui {
                 };
 
                 *clipboard = Some(Zeroizing::new(password));
+                state.egui_ctx.request_repaint();
             }
             Err(error) => {
                 GuiError::display_error_or_print(state.clone(), error.into());
