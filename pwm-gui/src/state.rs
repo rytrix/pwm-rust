@@ -312,6 +312,7 @@ impl State {
 
         let mut string = state.clipboard_string.write()?;
         *string = Some(Zeroizing::new(result.to_string()));
+        state.egui_ctx.request_repaint();
 
         Ok(())
     }
