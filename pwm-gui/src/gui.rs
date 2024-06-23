@@ -747,28 +747,43 @@ impl Gui {
     }
 
     fn display_header(&mut self, ui: &mut egui::Ui) -> Result<(), GuiError> {
+        let vault_locked = State::is_vault_locked(self.state.clone());
+
         ui.horizontal(|ui| {
             ui.menu_button("File", |ui| {
-                if ui.button("Create").clicked() {
+                if ui
+                    .add_enabled(vault_locked, Button::new("Create"))
+                    .clicked()
+                    && vault_locked
+                {
                     self.file_new(self.state.clone());
                     ui.close_menu();
                 }
-                if ui.button("Open").clicked() {
+
+                if ui.add_enabled(vault_locked, Button::new("Open")).clicked() && vault_locked {
                     tokio::spawn(Gui::file_open(self.state.clone()));
                     ui.close_menu();
                 }
                 ui.menu_button("Open Recent", |ui| {
-                    if let Err(error) =
-                        Gui::display_recent_vaults_loop(self.state.clone(), ui, 2, false)
-                    {
+                    if let Err(error) = Gui::display_recent_vaults_loop(
+                        self.state.clone(),
+                        ui,
+                        2,
+                        false,
+                        vault_locked,
+                    ) {
                         GuiError::display_error_or_print(self.state.clone(), error);
                     };
                 });
-                if ui.button("Save").clicked() {
+
+                if ui.add_enabled(vault_locked, Button::new("Save")).clicked() {
                     tokio::spawn(Gui::file_save(self.state.clone()));
                     ui.close_menu();
                 }
-                if ui.button("Save As").clicked() {
+                if ui
+                    .add_enabled(vault_locked, Button::new("Save As"))
+                    .clicked()
+                {
                     tokio::spawn(Gui::file_save_as(self.state.clone()));
                     ui.close_menu();
                 }
@@ -925,6 +940,7 @@ impl Gui {
         ui: &mut egui::Ui,
         path_len: usize,
         button_mode: bool,
+        vault_locked: bool,
     ) -> Result<(), GuiError> {
         let prev_vaults = state.prev_vaults.read()?;
         for prev_vault in prev_vaults.iter() {
@@ -966,8 +982,9 @@ impl Gui {
                     };
                 } else {
                     if ui
-                        .add(
-                            Button::new(get_file_path_back_count(prev_vault.into(), path_len))
+                        .add_enabled(
+                            vault_locked,
+                            Button::new(get_file_path_back_count(prev_vault.into(), path_len)),
                         )
                         .clicked()
                     {
@@ -987,7 +1004,7 @@ impl Gui {
             ui.heading("Recent Vaults");
         });
         ui.separator();
-        Gui::display_recent_vaults_loop(state, ui, 3, true)?;
+        Gui::display_recent_vaults_loop(state, ui, 3, true, false)?;
 
         Ok(())
     }

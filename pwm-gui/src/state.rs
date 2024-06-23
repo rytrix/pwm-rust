@@ -398,4 +398,21 @@ impl State {
         }
         Err(GuiError::NoVault)
     }
+
+    pub fn is_vault_locked(state: Arc<State>) -> bool {
+        let vault_locked = {
+            let locked_vault_guard = match state.vault.try_write() {
+                Ok(vault) => Some(vault),
+                Err(_error) => None,
+            };
+
+            if let Some(_vault) = locked_vault_guard {
+                true
+            } else {
+                false
+            }
+        };
+
+        vault_locked
+    }
 }
