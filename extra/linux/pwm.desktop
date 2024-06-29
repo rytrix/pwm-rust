@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Terminal=false
+Exec=pwm-gui
+TryExec=pwm-gui
+Name=Pwm
+Icon=pwm.png
+Categories=Security;Utility
