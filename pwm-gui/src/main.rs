@@ -16,5 +16,5 @@ async fn main() -> Result<(), eframe::Error> {
         viewport: egui::ViewportBuilder::default().with_inner_size([600.0, 600.0]),
         ..Default::default()
     };
-    eframe::run_native("PWM Vault", options, Box::new(|cc| Box::<Gui>::new(Gui::new(cc))))
+    eframe::run_native("PWM Vault", options, Box::new(|cc| Ok(Box::<Gui>::new(Gui::new(cc)))))
 }

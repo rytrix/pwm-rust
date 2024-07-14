@@ -1061,7 +1061,7 @@ impl Gui {
                 ui.memory_mut(|mem| mem.toggle_popup(popup_id));
             }
 
-            egui::popup_below_widget(ui, popup_id, &response, |ui| {
+            egui::popup_below_widget(ui, popup_id, &response, egui::PopupCloseBehavior::CloseOnClick, |ui: &mut egui::Ui| {
                 let mut buffer = match self.state.search_string.write() {
                     Ok(buffer) => buffer,
                     Err(error) => {
@@ -1086,7 +1086,7 @@ impl Gui {
                 ui.memory_mut(|mem| mem.toggle_popup(popup_id));
             }
 
-            egui::popup_below_widget(ui, popup_id, &response, |ui| {
+            egui::popup_below_widget(ui, popup_id, &response, egui::PopupCloseBehavior::CloseOnClick, |ui| {
                 ui.horizontal(|ui| {
                     let response = ui.add_sized(
                         [100.0, 20.0],
