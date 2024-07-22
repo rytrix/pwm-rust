@@ -27,7 +27,12 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(ctx: egui::Context, prev_vaults: VecDeque<String>, prev_vaults_max_length: usize, password_length: usize) -> Self {
+    pub fn new(
+        ctx: egui::Context,
+        prev_vaults: VecDeque<String>,
+        prev_vaults_max_length: usize,
+        password_length: usize,
+    ) -> Self {
         Self {
             messages: RwLock::new(Vec::new()),
             prompts: RwLock::new(Vec::new()),
@@ -37,7 +42,7 @@ impl State {
             password_length: RwLock::new(format!("{}", password_length)),
             prev_vaults: RwLock::new(prev_vaults),
             prev_vaults_max_length: RwLock::new(prev_vaults_max_length),
-            egui_ctx: ctx
+            egui_ctx: ctx,
         }
     }
 
@@ -108,7 +113,10 @@ impl State {
         }
     }
 
-    pub fn append_vault_path_to_prev_vaults(state: Arc<State>, file: String) -> Result<(), GuiError> {
+    pub fn append_vault_path_to_prev_vaults(
+        state: Arc<State>,
+        file: String,
+    ) -> Result<(), GuiError> {
         let mut prev_vaults = state.prev_vaults.write()?;
 
         let mut remove_list = VecDeque::new();
@@ -178,12 +186,19 @@ impl State {
 
     pub async fn insert(state: Arc<State>, name: String) -> Result<(), GuiError> {
         let receiver = Self::add_password_prompt(state.clone(), format!("Enter master password"))?;
-
         let password = receiver.recv()?;
+
         let receiver =
             Self::add_password_prompt(state.clone(), format!("Enter entry for {}", name))?;
-
         let data = receiver.recv()?;
+
+        let receiver2 =
+            Self::add_password_prompt(state.clone(), format!("Confirm entry for {}", name))?;
+        let data2 = receiver2.recv()?;
+
+        if !data.eq(&data2) {
+            return Err(GuiError::PasswordNotSame);
+        }
 
         let mut vault = state.vault.write()?;
         let vault = match &mut *vault {
@@ -258,8 +273,17 @@ impl State {
         let receiver = State::add_password_prompt(state.clone(), format!("Enter master password"))?;
         let password = receiver.recv()?;
 
-        let receiver = State::add_password_prompt(state.clone(), format!("Enter new password"))?;
-        let new_data = receiver.recv()?;
+        let receiver =
+            Self::add_password_prompt(state.clone(), format!("Enter new password for {}", name))?;
+        let data = receiver.recv()?;
+
+        let receiver2 =
+            Self::add_password_prompt(state.clone(), format!("Confirm entry for {}", name))?;
+        let data2 = receiver2.recv()?;
+
+        if !data.eq(&data2) {
+            return Err(GuiError::PasswordNotSame);
+        }
 
         let mut vault = state.vault.write()?;
         let vault = match &mut *vault {
@@ -267,7 +291,7 @@ impl State {
             None => return Err(GuiError::NoVault),
         };
 
-        vault.replace(name.as_str(), new_data.as_bytes(), password.as_bytes())?;
+        vault.replace(name.as_str(), data.as_bytes(), password.as_bytes())?;
         state.egui_ctx.request_repaint();
         Ok(())
     }
