@@ -1,5 +1,5 @@
 # Bugs
-?Can't close if file manager is open
+Can't close if file manager is open (is this a bug?)
 
 # Todo
 
