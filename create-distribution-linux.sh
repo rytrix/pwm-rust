@@ -4,7 +4,6 @@ cargo build --release
 mkdir -p dist/
 cp target/release/pwm-gui dist/pwm-gui
 cp target/release/pwm-cli dist/pwm-cli
-cp extra/linux/pwm.desktop dist/pwm.desktop
 cp extra/pwm.png dist/pwm.png
 
 cat <<EOF > dist/install.sh
