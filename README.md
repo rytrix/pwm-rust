@@ -1,7 +1,7 @@
 # Pwm
 A cross platform password manager written in pure rust
 
-Uses AES encryption to keep passwords encrypted in memory at all times until it is specifically retrieved, the password manager does not have the information to decrypt until you specifically enter your password
+Uses AES256gcm/chacha20-poly1305 encryption to keep passwords encrypted in memory at all times until it is specifically retrieved, the password manager does not have the information to decrypt until you specifically enter your password
 
 All passwords, hashes and other critical data are zeroed out in memory after they are done being used
 
