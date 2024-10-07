@@ -15,6 +15,6 @@ Good defaults are a priority, these are not important to me
 * options for strength of hashes (and maybe a benchmark for how long it'll take to hash)
 * options for which encryption method to use
 
-more options for password generation (such as allowed characters and maybe entrophy)
+more options for password generation (such as allowed characters and maybe entropy)
 
 maybe just give a warning if the password strength is below an acceptable threshold when creating a vault/saving passwords
