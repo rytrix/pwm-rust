@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 pwm-lib = { path = "../pwm-lib" }
 pwm-db = { path = "../pwm-db" }
-clap = { version = "4.5.4", features = ["derive"] }
+clap = { version = "4.5.19", features = ["derive"] }
 # TODO Check this for testing pws
 rpassword = "7.3.1"
-arboard = "3.4.0"
+arboard = "3.4.1"
