@@ -13,4 +13,5 @@ Non-minor version bumps are likely to break serialization, remaking a vault is r
 
 # Building
 requires the rust and cargo to be installed
+
 ```cargo build --release```
