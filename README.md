@@ -10,3 +10,7 @@ Passwords are sent to the system clipboard and are never visually visible, clear
 # Warning
 
 Non-minor version bumps are likely to break serialization, remaking a vault is required on a version bump (use csv export/import)
+
+# Building
+requires the rust and cargo to be installed
+```cargo build --release```
